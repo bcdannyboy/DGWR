@@ -18,7 +18,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 					if event.Event.AssociatedRisk.Probability != nil {
 						if event.Event.AssociatedRisk.Probability.SingleNumber != nil {
 							// associated risk single number probability
-							associatedRiskProbability, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedRisk.Probability.SingleNumber)
+							associatedRiskProbability, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedRisk.Probability.SingleNumber, event.Event.Timeframe)
 							if err != nil {
 								return nil, err
 							}
@@ -30,7 +30,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 
 						} else if event.Event.AssociatedRisk.Probability.Range != nil {
 							// associated risk range probability
-							associatedRiskProbability, err := simulator.SimulateIndependentRange(event.Event.AssociatedRisk.Probability.Range)
+							associatedRiskProbability, err := simulator.SimulateIndependentRange(event.Event.AssociatedRisk.Probability.Range, event.Event.Timeframe)
 							if err != nil {
 								return nil, err
 							}
@@ -59,7 +59,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 					if event.Event.AssociatedMitigation.Probability != nil {
 						if event.Event.AssociatedMitigation.Probability.SingleNumber != nil {
 							// associated mitigation single number probability
-							associatedMitigationProbability, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedMitigation.Probability.SingleNumber)
+							associatedMitigationProbability, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedMitigation.Probability.SingleNumber, event.Event.Timeframe)
 							if err != nil {
 								return nil, err
 							}
@@ -70,7 +70,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 							})
 						} else if event.Event.AssociatedMitigation.Probability.Range != nil {
 							// associated mitigation range probability
-							associatedMitigationProbability, err := simulator.SimulateIndependentRange(event.Event.AssociatedMitigation.Probability.Range)
+							associatedMitigationProbability, err := simulator.SimulateIndependentRange(event.Event.AssociatedMitigation.Probability.Range, event.Event.Timeframe)
 							if err != nil {
 								return nil, err
 							}
@@ -98,10 +98,9 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 				// default probability item
 				if event.Event.AssociatedProbability.SingleNumber != nil {
 					// associated probability single number probability
-					associatedProbability, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedProbability.SingleNumber)
+					associatedProbability, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedProbability.SingleNumber, event.Event.Timeframe)
 					if err != nil {
-						// TODO: handle error
-						continue
+						return nil, err
 					}
 
 					SimulationResults = append(SimulationResults, &types.SimulationResults{
@@ -110,10 +109,9 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 					})
 				} else if event.Event.AssociatedProbability.Range != nil {
 					// associated probability range probability
-					associatedProbability, err := simulator.SimulateIndependentRange(event.Event.AssociatedProbability.Range)
+					associatedProbability, err := simulator.SimulateIndependentRange(event.Event.AssociatedProbability.Range, event.Event.Timeframe)
 					if err != nil {
-						// TODO: handle error
-						continue
+						return nil, err
 					}
 
 					SimulationResults = append(SimulationResults, &types.SimulationResults{
@@ -124,8 +122,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 					// associated probability decomposed probability
 					associatedProbability, associatedProbabilityStandardDeviation, _, _, _, _, err := simulator.SimulateIndependentDecomposed(event.Event.AssociatedProbability.Decomposed)
 					if err != nil {
-						// TODO: handle error
-						continue
+						return nil, err
 					}
 
 					SimulationResults = append(SimulationResults, &types.SimulationResults{
@@ -143,7 +140,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 						// associated risk impact
 						if event.Event.AssociatedRisk.Impact.SingleNumber != nil {
 							// associated risk single number impact
-							associatedRiskImpact, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedRisk.Impact.SingleNumber)
+							associatedRiskImpact, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedRisk.Impact.SingleNumber, event.Event.Timeframe)
 							if err != nil {
 								return nil, err
 							}
@@ -155,7 +152,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 							})
 						} else if event.Event.AssociatedRisk.Impact.Range != nil {
 							// associated risk range impact
-							associatedImpact, err := simulator.SimulateIndependentRange(event.Event.AssociatedRisk.Impact.Range)
+							associatedImpact, err := simulator.SimulateIndependentRange(event.Event.AssociatedRisk.Impact.Range, event.Event.Timeframe)
 							if err != nil {
 								return nil, err
 							}
@@ -184,7 +181,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 							// associated mitigation impact
 							if event.Event.AssociatedMitigation.Impact.SingleNumber != nil {
 								// associated mitigation single number impact
-								associatedMitigationImpact, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedMitigation.Impact.SingleNumber)
+								associatedMitigationImpact, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedMitigation.Impact.SingleNumber, event.Event.Timeframe)
 								if err != nil {
 									return nil, err
 								}
@@ -196,7 +193,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 								})
 							} else if event.Event.AssociatedMitigation.Impact.Range != nil {
 								// associated mitigation range impact
-								associatedMitigationImpact, err := simulator.SimulateIndependentRange(event.Event.AssociatedMitigation.Impact.Range)
+								associatedMitigationImpact, err := simulator.SimulateIndependentRange(event.Event.AssociatedMitigation.Impact.Range, event.Event.Timeframe)
 								if err != nil {
 									return nil, err
 								}
@@ -227,7 +224,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 				// default impact item
 				if event.Event.AssociatedImpact.SingleNumber != nil {
 					// associated impact single number impact
-					associatedImpact, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedImpact.SingleNumber)
+					associatedImpact, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedImpact.SingleNumber, event.Event.Timeframe)
 					if err != nil {
 						return nil, err
 					}
@@ -239,7 +236,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 					})
 				} else if event.Event.AssociatedImpact.Range != nil {
 					// associated impact range impact
-					associatedImpact, err := simulator.SimulateIndependentRange(event.Event.AssociatedImpact.Range)
+					associatedImpact, err := simulator.SimulateIndependentRange(event.Event.AssociatedImpact.Range, event.Event.Timeframe)
 					if err != nil {
 						return nil, err
 					}
@@ -272,7 +269,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 						// associated mitigation cost
 						if event.Event.AssociatedMitigation.AssociatedCost.SingleNumber != nil {
 							// associated mitigation single number cost
-							associatedMitigationCost, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedMitigation.AssociatedCost.SingleNumber)
+							associatedMitigationCost, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedMitigation.AssociatedCost.SingleNumber, event.Event.Timeframe)
 							if err != nil {
 								return nil, err
 							}
@@ -283,7 +280,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 							})
 						} else if event.Event.AssociatedMitigation.AssociatedCost.Range != nil {
 							// associated mitigation range cost
-							associatedMitigationRangeCost, err := simulator.SimulateIndependentRange(event.Event.AssociatedMitigation.AssociatedCost.Range)
+							associatedMitigationRangeCost, err := simulator.SimulateIndependentRange(event.Event.AssociatedMitigation.AssociatedCost.Range, event.Event.Timeframe)
 							if err != nil {
 								return nil, err
 							}
@@ -311,7 +308,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 				// default cost item
 				if event.Event.AssociatedCost.SingleNumber != nil {
 					// associated cost single number cost
-					associatedCost, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedCost.SingleNumber)
+					associatedCost, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedCost.SingleNumber, event.Event.Timeframe)
 					if err != nil {
 						return nil, err
 					}
@@ -322,7 +319,7 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 					})
 				} else if event.Event.AssociatedCost.Range != nil {
 					// associated cost range cost
-					associatedCost, err := simulator.SimulateIndependentRange(event.Event.AssociatedCost.Range)
+					associatedCost, err := simulator.SimulateIndependentRange(event.Event.AssociatedCost.Range, event.Event.Timeframe)
 					if err != nil {
 						return nil, err
 					}

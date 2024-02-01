@@ -37,6 +37,7 @@ type DecomposedComponent struct {
 		Range        *Range        `json:"range,omitempty"`
 		Decomposed   *Decomposed   `json:"decomposed,omitempty"`
 	} `json:"cost,omitempty"`
+	TimeFrame uint64
 }
 
 type Decomposed struct {

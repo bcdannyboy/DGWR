@@ -7,7 +7,17 @@ import (
 	"github.com/bcdannyboy/montecargo/dgws/utils"
 )
 
-func SimulateIndependentSingleNumer(sn *types.SingleNumber) (*float64, error) {
+func SimulateIndependentSingleNumer(sn *types.SingleNumber, timeFrame uint64) (*float64, error) {
+	if utils.CheckForValidTimeframe(timeFrame) {
+		adjustedProbability, err := utils.AdjustProbabilityForTimeFrame(sn.Value, timeFrame)
+		if err != nil {
+			return nil, err
+		}
+		sn.Value = adjustedProbability
+	} else {
+		return nil, errors.New("invalid timeframe")
+	}
+
 	// Initialize the random seed
 	randomFloat, err := utils.CryptoRandFloat64()
 	if err != nil {
@@ -52,7 +62,23 @@ func SimulateIndependentSingleNumer(sn *types.SingleNumber) (*float64, error) {
 	return utils.Float64toPointer((utils.LogNormalSample(sn.Value, 0))), nil
 }
 
-func SimulateIndependentRange(rng *types.Range) (*float64, error) {
+func SimulateIndependentRange(rng *types.Range, timeFrame uint64) (*float64, error) {
+	if utils.CheckForValidTimeframe(timeFrame) {
+		adjustedMinimum, err := utils.AdjustProbabilityForTimeFrame(rng.Minimum.Value, timeFrame)
+		if err != nil {
+			return nil, err
+		}
+		rng.Minimum.Value = adjustedMinimum
+
+		adjustedMaximum, err := utils.AdjustProbabilityForTimeFrame(rng.Maximum.Value, timeFrame)
+		if err != nil {
+			return nil, err
+		}
+		rng.Maximum.Value = adjustedMaximum
+	} else {
+		return nil, errors.New("invalid timeframe")
+	}
+
 	randomMinimumFloat, err := utils.CryptoRandFloat64()
 	if err != nil {
 		return nil, err
@@ -149,11 +175,37 @@ func SimulateIndependentDecomposed(decomposed *types.Decomposed) (float64, float
 	for _, component := range decomposed.Components {
 		// Handle Probability
 		if component.Probability != nil {
+			if utils.CheckForValidTimeframe(component.TimeFrame) {
+				if component.Probability.SingleNumber != nil {
+					adjustedProbability, err := utils.AdjustProbabilityForTimeFrame(component.Probability.SingleNumber.Value, component.TimeFrame)
+					if err != nil {
+						return 0, 0, 0, 0, 0, 0, err
+					}
+
+					component.Probability.SingleNumber.Value = adjustedProbability
+				} else if component.Probability.Range != nil {
+					adjustedMinimum, err := utils.AdjustProbabilityForTimeFrame(component.Probability.Range.Minimum.Value, component.TimeFrame)
+					if err != nil {
+						return 0, 0, 0, 0, 0, 0, err
+					}
+
+					component.Probability.Range.Minimum.Value = adjustedMinimum
+				} else {
+					err := adjustTimeFrameForDecomposed(component.Probability.Decomposed, component.TimeFrame)
+					if err != nil {
+						return 0, 0, 0, 0, 0, 0, err
+					}
+
+				}
+			} else {
+				return 0, 0, 0, 0, 0, 0, errors.New("invalid timeframe")
+			}
+
 			pVal, pStdDev, err := handleComponent(&Component{
 				SingleNumber: component.Probability.SingleNumber,
 				Range:        component.Probability.Range,
 				Decomposed:   component.Probability.Decomposed,
-			})
+			}, component.TimeFrame)
 			if err != nil {
 				return 0, 0, 0, 0, 0, 0, err
 			}
@@ -163,11 +215,40 @@ func SimulateIndependentDecomposed(decomposed *types.Decomposed) (float64, float
 
 		// Handle Impact
 		if component.Impact != nil {
+			if utils.CheckForValidTimeframe(component.TimeFrame) {
+				if component.Impact.SingleNumber != nil {
+					adjustedImpact, err := utils.AdjustProbabilityForTimeFrame(component.Impact.SingleNumber.Value, component.TimeFrame)
+					if err != nil {
+						return 0, 0, 0, 0, 0, 0, err
+					}
+					component.Impact.SingleNumber.Value = adjustedImpact
+				} else if component.Impact.Range != nil {
+					adjustedMinimum, err := utils.AdjustProbabilityForTimeFrame(component.Impact.Range.Minimum.Value, component.TimeFrame)
+					if err != nil {
+						return 0, 0, 0, 0, 0, 0, err
+					}
+					component.Impact.Range.Minimum.Value = adjustedMinimum
+
+					adjustedMaximum, err := utils.AdjustProbabilityForTimeFrame(component.Impact.Range.Maximum.Value, component.TimeFrame)
+					if err != nil {
+						return 0, 0, 0, 0, 0, 0, err
+					}
+					component.Impact.Range.Maximum.Value = adjustedMaximum
+				} else {
+					err := adjustTimeFrameForDecomposed(component.Impact.Decomposed, component.TimeFrame)
+					if err != nil {
+						return 0, 0, 0, 0, 0, 0, err
+					}
+				}
+			} else {
+				return 0, 0, 0, 0, 0, 0, errors.New("invalid timeframe")
+			}
+
 			iVal, iStdDev, err := handleComponent(&Component{
 				SingleNumber: component.Impact.SingleNumber,
 				Range:        component.Impact.Range,
 				Decomposed:   component.Impact.Decomposed,
-			})
+			}, component.TimeFrame)
 			if err != nil {
 				return 0, 0, 0, 0, 0, 0, err
 			}
@@ -177,11 +258,40 @@ func SimulateIndependentDecomposed(decomposed *types.Decomposed) (float64, float
 
 		// Handle Cost
 		if component.Cost != nil {
+			if utils.CheckForValidTimeframe(component.TimeFrame) {
+				if component.Cost.SingleNumber != nil {
+					adjustedCost, err := utils.AdjustProbabilityForTimeFrame(component.Cost.SingleNumber.Value, component.TimeFrame)
+					if err != nil {
+						return 0, 0, 0, 0, 0, 0, err
+					}
+					component.Cost.SingleNumber.Value = adjustedCost
+				} else if component.Cost.Range != nil {
+					adjustedMinimum, err := utils.AdjustProbabilityForTimeFrame(component.Cost.Range.Minimum.Value, component.TimeFrame)
+					if err != nil {
+						return 0, 0, 0, 0, 0, 0, err
+					}
+					component.Cost.Range.Minimum.Value = adjustedMinimum
+
+					adjustedMaximum, err := utils.AdjustProbabilityForTimeFrame(component.Cost.Range.Maximum.Value, component.TimeFrame)
+					if err != nil {
+						return 0, 0, 0, 0, 0, 0, err
+					}
+					component.Cost.Range.Maximum.Value = adjustedMaximum
+				} else {
+					err := adjustTimeFrameForDecomposed(component.Cost.Decomposed, component.TimeFrame)
+					if err != nil {
+						return 0, 0, 0, 0, 0, 0, err
+					}
+				}
+			} else {
+				return 0, 0, 0, 0, 0, 0, errors.New("invalid timeframe")
+			}
+
 			cVal, cStdDev, err := handleComponent(&Component{
 				SingleNumber: component.Cost.SingleNumber,
 				Range:        component.Cost.Range,
 				Decomposed:   component.Cost.Decomposed,
-			})
+			}, component.TimeFrame)
 			if err != nil {
 				return 0, 0, 0, 0, 0, 0, err
 			}
@@ -197,15 +307,15 @@ func SimulateIndependentDecomposed(decomposed *types.Decomposed) (float64, float
 	return probComposite, probStdDev, impactComposite, impactStdDev, costComposite, costStdDev, nil
 }
 
-func handleComponent(comp *Component) (float64, float64, error) {
+func handleComponent(comp *Component, timeFrame uint64) (float64, float64, error) {
 	if comp.SingleNumber != nil {
-		value, stdDev, err := simulateSingleNumber(comp.SingleNumber)
+		value, stdDev, err := simulateSingleNumber(comp.SingleNumber, timeFrame)
 		if err != nil {
 			return 0, 0, err
 		}
 		return value, stdDev, nil
 	} else if comp.Range != nil {
-		value, stdDev, err := simulateRange(comp.Range)
+		value, stdDev, err := simulateRange(comp.Range, timeFrame)
 		if err != nil {
 			return 0, 0, err
 		}
@@ -220,19 +330,48 @@ func handleComponent(comp *Component) (float64, float64, error) {
 	return 0, 0, errors.New("invalid component")
 }
 
-func simulateSingleNumber(sn *types.SingleNumber) (float64, float64, error) {
-	value, err := SimulateIndependentSingleNumer(sn)
+func simulateSingleNumber(sn *types.SingleNumber, timeFrame uint64) (float64, float64, error) {
+	value, err := SimulateIndependentSingleNumer(sn, timeFrame)
 	if err != nil {
 		return 0, 0, err
 	}
 	return *value, *sn.StandardDeviation, nil
 }
 
-func simulateRange(rng *types.Range) (float64, float64, error) {
-	value, err := SimulateIndependentRange(rng)
+func simulateRange(rng *types.Range, timeFrame uint64) (float64, float64, error) {
+	value, err := SimulateIndependentRange(rng, timeFrame)
 	if err != nil {
 		return 0, 0, err
 	}
 	stdDev := (*rng.Minimum.StandardDeviation + *rng.Maximum.StandardDeviation) / 2
 	return *value, stdDev, nil
+}
+
+func adjustTimeFrameForDecomposed(decomposed *types.Decomposed, timeFrame uint64) error {
+	for _, component := range decomposed.Components {
+		// Adjust Probability
+		if component.Probability != nil && component.Probability.Decomposed != nil {
+			err := adjustTimeFrameForDecomposed(component.Probability.Decomposed, timeFrame)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Adjust Impact
+		if component.Impact != nil && component.Impact.Decomposed != nil {
+			err := adjustTimeFrameForDecomposed(component.Impact.Decomposed, timeFrame)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Adjust Cost
+		if component.Cost != nil && component.Cost.Decomposed != nil {
+			err := adjustTimeFrameForDecomposed(component.Cost.Decomposed, timeFrame)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

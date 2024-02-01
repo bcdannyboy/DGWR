@@ -1,5 +1,16 @@
 package types
 
+const (
+	Year = iota
+	Quarter
+	Month
+	Week
+	Day
+	TwoYears
+	FiveYears
+	TenYears
+)
+
 type Probability struct {
 	ID              uint64             `json:"id"`
 	Name            string             `json:"name,omitempty"`
@@ -48,4 +59,5 @@ type Event struct {
 	DependsOnRisk         []*RiskDependency        `json:"depends_on_risk,omitempty"`
 	DependsOnCost         []*CostDependency        `json:"depends_on_cost,omitempty"`
 	DependsOnMitigation   []*MitigationDependency  `json:"depends_on_mitigation,omitempty"`
+	Timeframe             uint64                   `json:"timeframe"`
 }

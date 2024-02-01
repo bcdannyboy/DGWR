@@ -30,7 +30,7 @@ func (m *MonteCarlo) Simulate() {
 	// 2. simulate all the indepdendent events seperately and store the results
 	for _, event := range filteredEvents {
 		if event.Independent {
-			fmt.Printf("Simulating event %d\n", event.ID)
+
 		}
 	}
 
