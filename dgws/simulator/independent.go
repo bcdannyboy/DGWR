@@ -375,3 +375,222 @@ func adjustTimeFrameForDecomposed(decomposed *types.Decomposed, timeFrame uint64
 	}
 	return nil
 }
+
+func SimulateIndependentEvent(event *utils.FilteredEvent) (*types.SimulationResults, error) {
+	results := &types.SimulationResults{
+		EventID:        event.ID,
+		EventTimeFrame: event.Event.Timeframe,
+	}
+
+	if event.Event.AssociatedProbability != nil {
+		if event.Event.AssociatedProbability.SingleNumber != nil {
+			probability, err := SimulateIndependentSingleNumer(event.Event.AssociatedProbability.SingleNumber, event.Event.Timeframe)
+			if err != nil {
+				return nil, err
+			}
+			results.Probability = *probability
+		}
+
+		if event.Event.AssociatedProbability.Range != nil {
+			probability, err := SimulateIndependentRange(event.Event.AssociatedProbability.Range, event.Event.Timeframe)
+			if err != nil {
+				return nil, err
+			}
+			results.Probability = *probability
+		}
+
+		if event.Event.AssociatedProbability.Decomposed != nil {
+			probability, probabilityStdDev, _, _, _, _, err := SimulateIndependentDecomposed(event.Event.AssociatedProbability.Decomposed)
+			if err != nil {
+				return nil, err
+			}
+			results.Probability = probability
+			results.ProbabilityStandardDeviation = probabilityStdDev
+		}
+
+	}
+
+	if event.Event.AssociatedImpact != nil {
+		if event.Event.AssociatedImpact.SingleNumber != nil {
+			impact, err := SimulateIndependentSingleNumer(event.Event.AssociatedImpact.SingleNumber, event.Event.Timeframe)
+			if err != nil {
+				return nil, err
+			}
+			results.Impact = *impact
+		}
+
+		if event.Event.AssociatedImpact.Range != nil {
+			impact, err := SimulateIndependentRange(event.Event.AssociatedImpact.Range, event.Event.Timeframe)
+			if err != nil {
+				return nil, err
+			}
+
+			results.Impact = *impact
+
+		}
+
+		if event.Event.AssociatedImpact.Decomposed != nil {
+			_, _, impact, impactStdDev, _, _, err := SimulateIndependentDecomposed(event.Event.AssociatedImpact.Decomposed)
+			if err != nil {
+				return nil, err
+			}
+			results.Impact = impact
+			results.ImpactStandardDeviation = impactStdDev
+		}
+
+	}
+
+	if event.Event.AssociatedCost != nil {
+
+		if event.Event.AssociatedCost.SingleNumber != nil {
+			cost, err := SimulateIndependentSingleNumer(event.Event.AssociatedCost.SingleNumber, event.Event.Timeframe)
+			if err != nil {
+				return nil, err
+			}
+			results.Cost = *cost
+		}
+
+		if event.Event.AssociatedCost.Range != nil {
+			cost, err := SimulateIndependentRange(event.Event.AssociatedCost.Range, event.Event.Timeframe)
+			if err != nil {
+				return nil, err
+			}
+			results.Cost = *cost
+		}
+
+		if event.Event.AssociatedCost.Decomposed != nil {
+			_, _, _, _, cost, costStdDev, err := SimulateIndependentDecomposed(event.Event.AssociatedCost.Decomposed)
+			if err != nil {
+				return nil, err
+			}
+			results.Cost = cost
+			results.CostStandardDeviation = costStdDev
+		}
+
+	}
+
+	if event.Event.AssociatedRisk != nil {
+		if event.Event.AssociatedRisk.Probability != nil {
+			if event.Event.AssociatedRisk.Probability.SingleNumber != nil {
+				probability, err := SimulateIndependentSingleNumer(event.Event.AssociatedRisk.Probability.SingleNumber, event.Event.Timeframe)
+				if err != nil {
+					return nil, err
+				}
+
+				results.AssociatedRisk.Probability = *probability
+			}
+			if event.Event.AssociatedRisk.Probability.Range != nil {
+				probability, err := SimulateIndependentRange(event.Event.AssociatedRisk.Probability.Range, event.Event.Timeframe)
+				if err != nil {
+					return nil, err
+				}
+				results.AssociatedRisk.Probability = *probability
+
+			}
+			if event.Event.AssociatedRisk.Probability.Decomposed != nil {
+				probability, probabilityStdDev, _, _, _, _, err := SimulateIndependentDecomposed(event.Event.AssociatedRisk.Probability.Decomposed)
+				if err != nil {
+					return nil, err
+				}
+
+				results.AssociatedRisk.Probability = probability
+				results.AssociatedRisk.ProbabilityStandardDeviation = probabilityStdDev
+			}
+		}
+
+		if event.Event.AssociatedRisk.Impact != nil {
+			if event.Event.AssociatedRisk.Impact.SingleNumber != nil {
+				impact, err := SimulateIndependentSingleNumer(event.Event.AssociatedRisk.Impact.SingleNumber, event.Event.Timeframe)
+				if err != nil {
+					return nil, err
+				}
+				results.AssociatedRisk.Impact = *impact
+			}
+			if event.Event.AssociatedRisk.Impact.Range != nil {
+				impact, err := SimulateIndependentRange(event.Event.AssociatedRisk.Impact.Range, event.Event.Timeframe)
+				if err != nil {
+					return nil, err
+				}
+
+				results.AssociatedRisk.Impact = *impact
+
+			}
+			if event.Event.AssociatedRisk.Impact.Decomposed != nil {
+				_, _, impact, impactStdDev, _, _, err := SimulateIndependentDecomposed(event.Event.AssociatedRisk.Impact.Decomposed)
+				if err != nil {
+					return nil, err
+				}
+				results.AssociatedRisk.Impact = impact
+				results.AssociatedRisk.ImpactStandardDeviation = impactStdDev
+			}
+		}
+	}
+
+	if event.Event.AssociatedMitigation != nil {
+		if event.Event.AssociatedMitigation.Probability != nil {
+			if event.Event.AssociatedMitigation.Probability.SingleNumber != nil {
+
+			}
+			if event.Event.AssociatedMitigation.Probability.Range != nil {
+
+			}
+			if event.Event.AssociatedMitigation.Probability.Decomposed != nil {
+
+			}
+		}
+		if event.Event.AssociatedMitigation.Impact != nil {
+			if event.Event.AssociatedMitigation.Impact.SingleNumber != nil {
+				imapct, err := SimulateIndependentSingleNumer(event.Event.AssociatedMitigation.Impact.SingleNumber, event.Event.Timeframe)
+				if err != nil {
+					return nil, err
+				}
+				results.AssociatedMitigation.Impact = *imapct
+			}
+			if event.Event.AssociatedMitigation.Impact.Range != nil {
+				impact, err := SimulateIndependentRange(event.Event.AssociatedMitigation.Impact.Range, event.Event.Timeframe)
+				if err != nil {
+					return nil, err
+				}
+
+				results.AssociatedMitigation.Impact = *impact
+			}
+			if event.Event.AssociatedMitigation.Impact.Decomposed != nil {
+				_, _, impact, impactStdDev, _, _, err := SimulateIndependentDecomposed(event.Event.AssociatedMitigation.Impact.Decomposed)
+				if err != nil {
+					return nil, err
+				}
+				results.AssociatedMitigation.Impact = impact
+				results.AssociatedMitigation.ImpactStandardDeviation = impactStdDev
+			}
+
+		}
+		if event.Event.AssociatedMitigation.AssociatedCost != nil {
+			if event.Event.AssociatedMitigation.AssociatedCost.SingleNumber != nil {
+				cost, err := SimulateIndependentSingleNumer(event.Event.AssociatedMitigation.AssociatedCost.SingleNumber, event.Event.Timeframe)
+				if err != nil {
+					return nil, err
+				}
+
+				results.AssociatedMitigation.Cost = *cost
+			}
+			if event.Event.AssociatedMitigation.AssociatedCost.Range != nil {
+				cost, err := SimulateIndependentRange(event.Event.AssociatedMitigation.AssociatedCost.Range, event.Event.Timeframe)
+				if err != nil {
+					return nil, err
+				}
+
+				results.AssociatedMitigation.Cost = *cost
+			}
+			if event.Event.AssociatedMitigation.AssociatedCost.Decomposed != nil {
+				_, _, _, _, cost, costStdDev, err := SimulateIndependentDecomposed(event.Event.AssociatedMitigation.AssociatedCost.Decomposed)
+				if err != nil {
+					return nil, err
+				}
+				results.AssociatedMitigation.Cost = cost
+				results.AssociatedMitigation.CostStandardDeviation = costStdDev
+			}
+		}
+	}
+
+	return results, nil
+}

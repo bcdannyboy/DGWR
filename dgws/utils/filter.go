@@ -184,3 +184,12 @@ func FindEventByID(id uint64, events []*FilteredEvent) (*FilteredEvent, error) {
 	}
 	return nil, errors.New("event not found")
 }
+
+func EventInResults(eid uint64, results []*types.SimulationResults) *types.SimulationResults {
+	for _, result := range results {
+		if result.EventID == eid {
+			return result
+		}
+	}
+	return nil
+}
