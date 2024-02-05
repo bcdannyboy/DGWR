@@ -1866,33 +1866,862 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		switch probabilityDependency.Type {
 		case types.In:
 			// check if the event dependency is in a range
+			if deiRange == nil {
+				return errors.New("probability dependency range is nil but type is In")
+			}
+
+			dist, sd, err := simulateRange(deiRange, depEvent.Event.Timeframe)
+			if err != nil {
+				return err
+			}
+
+			min := dist - sd
+			if min < 0 {
+				min = 0
+			}
+
+			max := dist + sd
+
+			if depEvent.Event.AssociatedProbability.SingleNumber != nil {
+				minNum := depEvent.Event.AssociatedProbability.SingleNumber.Value - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+				maxNum := depEvent.Event.AssociatedProbability.SingleNumber.Value + *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+
+				if minNum < 0 {
+					minNum = 0
+				}
+
+				minCF, err := utils.CoinFlip()
+				if err != nil {
+					return err
+				}
+
+				if minCF {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					minNum = minNum + (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
+				} else {
+
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					minNum = minNum - (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
+				}
+
+				maxCF, err := utils.CoinFlip()
+				if err != nil {
+					return err
+				}
+
+				if maxCF {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					maxNum = maxNum + (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
+				} else {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					maxNum = maxNum - (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
+				}
+
+				if minNum >= min && maxNum <= max {
+					DependenciesMet++
+				} else {
+					DependenciesMissed++
+				}
+
+			} else if depEvent.Event.AssociatedProbability.Range != nil {
+				minLower := depEvent.Event.AssociatedProbability.Range.Minimum.Value - *depEvent.Event.AssociatedProbability.Range.Minimum.StandardDeviation
+				minUpper := depEvent.Event.AssociatedProbability.Range.Minimum.Value + *depEvent.Event.AssociatedProbability.Range.Minimum.StandardDeviation
+				maxLower := depEvent.Event.AssociatedProbability.Range.Maximum.Value - *depEvent.Event.AssociatedProbability.Range.Maximum.StandardDeviation
+				maxUpper := depEvent.Event.AssociatedProbability.Range.Maximum.Value + *depEvent.Event.AssociatedProbability.Range.Maximum.StandardDeviation
+
+				if minLower < 0 {
+					minLower = 0
+				}
+
+				minLowerCF, err := utils.CoinFlip()
+				if err != nil {
+					return err
+				}
+
+				if minLowerCF {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					minLower = minLower + (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
+				} else {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					minLower = minLower - (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
+				}
+
+				minUpperCF, err := utils.CoinFlip()
+				if err != nil {
+					return err
+				}
+
+				if minUpperCF {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					minUpper = minUpper + (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
+				} else {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					minUpper = minUpper - (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
+				}
+
+				if maxLower < 0 {
+					maxLower = 0
+				}
+
+				maxLowerCF, err := utils.CoinFlip()
+				if err != nil {
+					return err
+				}
+
+				if maxLowerCF {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					maxLower = maxLower + (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
+				} else {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					maxLower = maxLower - (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
+				}
+
+				maxUpperCF, err := utils.CoinFlip()
+				if err != nil {
+					return err
+				}
+
+				if maxUpperCF {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					maxUpper = maxUpper + (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
+				} else {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					maxUpper = maxUpper - (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
+				}
+
+				if minLower >= min && minUpper <= max && maxLower >= min && maxUpper <= max {
+					DependenciesMet++
+				} else {
+					DependenciesMissed++
+				}
+			} else {
+				return errors.New("dependent event does not have a probability value or range but type is In for probability dependency")
+			}
+
 			break
 		case types.Out:
 			// check if the event dependency is out of a range
+			if deiRange == nil {
+				return errors.New("probability dependency range is nil but type is Out")
+			}
+
+			dist, sd, err := simulateRange(deiRange, depEvent.Event.Timeframe)
+			if err != nil {
+				return err
+			}
+
+			min := dist - sd
+			if min < 0 {
+				min = 0
+			}
+
+			max := dist + sd
+
+			if depEvent.Event.AssociatedProbability.SingleNumber != nil {
+				minNum := depEvent.Event.AssociatedProbability.SingleNumber.Value - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+				maxNum := depEvent.Event.AssociatedProbability.SingleNumber.Value + *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+
+				if minNum < 0 {
+					minNum = 0
+				}
+
+				minCF, err := utils.CoinFlip()
+				if err != nil {
+					return err
+				}
+
+				if minCF {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					minNum = minNum + (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
+				} else {
+					r, err := utils.CryptoRandFloat64()
+
+					if err != nil {
+						return err
+					}
+
+					minNum = minNum - (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
+				}
+
+				maxCF, err := utils.CoinFlip()
+				if err != nil {
+					return err
+				}
+
+				if maxCF {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					maxNum = maxNum + (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
+				} else {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					maxNum = maxNum - (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
+				}
+
+				if minNum < min && maxNum > max {
+					DependenciesMet++
+				} else {
+					DependenciesMissed++
+				}
+
+			} else if depEvent.Event.AssociatedProbability.Range != nil {
+				minLower := depEvent.Event.AssociatedProbability.Range.Minimum.Value - *depEvent.Event.AssociatedProbability.Range.Minimum.StandardDeviation
+				minUpper := depEvent.Event.AssociatedProbability.Range.Minimum.Value + *depEvent.Event.AssociatedProbability.Range.Minimum.StandardDeviation
+				maxLower := depEvent.Event.AssociatedProbability.Range.Maximum.Value - *depEvent.Event.AssociatedProbability.Range.Maximum.StandardDeviation
+				maxUpper := depEvent.Event.AssociatedProbability.Range.Maximum.Value + *depEvent.Event.AssociatedProbability.Range.Maximum.StandardDeviation
+
+				if minLower < 0 {
+					minLower = 0
+				}
+
+				minLowerCF, err := utils.CoinFlip()
+				if err != nil {
+					return err
+				}
+
+				if minLowerCF {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					minLower = minLower + (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
+				} else {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					minLower = minLower - (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
+				}
+
+				minUpperCF, err := utils.CoinFlip()
+				if err != nil {
+					return err
+				}
+
+				if minUpperCF {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					minUpper = minUpper + (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
+				} else {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					minUpper = minUpper - (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
+				}
+
+				if maxLower < 0 {
+					maxLower = 0
+				}
+
+				maxLowerCF, err := utils.CoinFlip()
+				if err != nil {
+					return err
+				}
+
+				if maxLowerCF {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					maxLower = maxLower + (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
+				} else {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					maxLower = maxLower - (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
+				}
+
+				maxUpperCF, err := utils.CoinFlip()
+				if err != nil {
+					return err
+				}
+
+				if maxUpperCF {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					maxUpper = maxUpper + (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
+				} else {
+					r, err := utils.CryptoRandFloat64()
+					if err != nil {
+						return err
+					}
+
+					maxUpper = maxUpper - (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
+				}
+
+				if minLower >= min && minUpper <= max && maxLower >= min && maxUpper <= max {
+					DependenciesMissed++
+				} else {
+					DependenciesMet++
+				}
+
+			} else {
+				return errors.New("dependent event does not have a probability value or range but type is Out for probability dependency")
+			}
 			break
 		case types.Has:
 			// check if the event decomposition has a component
+			if deiDecomposed.Components == nil {
+				return errors.New("probability dependency decomposed components is nil but type is Has")
+			}
+
+			// check if the dependent event has a probability value
+			found := false
+
+			for i := 0; i < len(deiDecomposed.Components); i++ {
+				for j := 0; j < len(depEvent.Event.AssociatedProbability.Decomposed.Components); j++ {
+					if deiDecomposed.Components[i].Name == depEvent.Event.AssociatedProbability.Decomposed.Components[j].Name {
+						found = true
+						break
+					}
+				}
+			}
+
+			if found {
+				DependenciesMet++
+			} else {
+				DependenciesMissed++
+			}
+
 			break
 		case types.HasNot:
 			// check if the event decomposition does not have a component
+			if deiDecomposed.Components == nil {
+				return errors.New("probability dependency decomposed components is nil but type is HasNot")
+			}
+
+			// check if the dependent event has a probability value
+			found := false
+
+			for i := 0; i < len(deiDecomposed.Components); i++ {
+				for j := 0; j < len(depEvent.Event.AssociatedProbability.Decomposed.Components); j++ {
+					if deiDecomposed.Components[i].Name == depEvent.Event.AssociatedProbability.Decomposed.Components[j].Name {
+						found = true
+						break
+					}
+				}
+			}
+
+			if !found {
+				DependenciesMet++
+			} else {
+				DependenciesMissed++
+			}
+
 			break
 		case types.EQ:
 			// check if the event value is equal to the dependency value
+			if deiSingle == nil {
+				return errors.New("probability dependency single value is nil but type is EQ")
+			}
+			if depEvent.Event.AssociatedProbability.SingleNumber == nil {
+				return errors.New("dependent event does not have a probability value but type is EQ for probability dependency")
+			}
+
+			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.SingleNumber, depEvent.Event.Timeframe)
+			if err != nil {
+				return err
+			}
+
+			min := *base - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+			max := *base + *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+
+			deiMin := deiSingle.Value - *deiSingle.StandardDeviation
+			deiMax := deiSingle.Value + *deiSingle.StandardDeviation
+
+			if deiMin < 0 {
+				deiMin = 0
+			}
+
+			minCF, err := utils.CoinFlip()
+			if err != nil {
+				return err
+			}
+
+			if minCF {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMin = deiMin + (r * *deiSingle.Confidence)
+			} else {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMin = deiMin - (r * *deiSingle.Confidence)
+			}
+
+			maxCF, err := utils.CoinFlip()
+			if err != nil {
+				return err
+			}
+
+			if maxCF {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMax = deiMax + (r * *deiSingle.Confidence)
+			} else {
+
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMax = deiMax - (r * *deiSingle.Confidence)
+			}
+
+			if deiMin >= min && deiMax <= max {
+				DependenciesMet++
+			} else {
+				DependenciesMissed++
+			}
+
 			break
 		case types.NEQ:
 			// check if the event value is not equal to the dependency value
+			if deiSingle == nil {
+				return errors.New("probability dependency single value is nil but type is NEQ")
+			}
+			if depEvent.Event.AssociatedProbability == nil {
+				return errors.New("dependent event does not have a probability value but type is NEQ for probability dependency")
+			}
+
+			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.SingleNumber, depEvent.Event.Timeframe)
+			if err != nil {
+				return err
+			}
+
+			min := *base - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+			max := *base + *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+
+			deiMin := deiSingle.Value - *deiSingle.StandardDeviation
+			deiMax := deiSingle.Value + *deiSingle.StandardDeviation
+
+			if deiMin < 0 {
+				deiMin = 0
+			}
+
+			minCF, err := utils.CoinFlip()
+			if err != nil {
+				return err
+			}
+
+			if minCF {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMin = deiMin + (r * *deiSingle.Confidence)
+			} else {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMin = deiMin - (r * *deiSingle.Confidence)
+			}
+
+			maxCF, err := utils.CoinFlip()
+			if err != nil {
+				return err
+			}
+
+			if maxCF {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMax = deiMax + (r * *deiSingle.Confidence)
+			} else {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMax = deiMax - (r * *deiSingle.Confidence)
+			}
+
+			if deiMin < min && deiMax > max {
+				DependenciesMet++
+			} else {
+				DependenciesMissed++
+			}
+
 			break
 		case types.LT:
 			// check if the event value is less than the dependency value
+			if deiSingle == nil {
+				return errors.New("probability dependency single value is nil but type is LT")
+			}
+			if depEvent.Event.AssociatedProbability == nil {
+				return errors.New("dependent event does not have a probability value but type is LT for probability dependency")
+			}
+
+			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.SingleNumber, depEvent.Event.Timeframe)
+			if err != nil {
+				return err
+			}
+
+			min := *base - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+			max := *base + *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+
+			deiMin := deiSingle.Value - *deiSingle.StandardDeviation
+			deiMax := deiSingle.Value + *deiSingle.StandardDeviation
+
+			if deiMin < 0 {
+				deiMin = 0
+			}
+
+			minCF, err := utils.CoinFlip()
+			if err != nil {
+				return err
+			}
+
+			if minCF {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMin = deiMin + (r * *deiSingle.Confidence)
+			} else {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMin = deiMin - (r * *deiSingle.Confidence)
+			}
+
+			maxCF, err := utils.CoinFlip()
+			if err != nil {
+				return err
+			}
+
+			if maxCF {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMax = deiMax + (r * *deiSingle.Confidence)
+			} else {
+
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+
+				}
+
+				deiMax = deiMax - (r * *deiSingle.Confidence)
+			}
+
+			if deiMin < min && deiMax < max {
+				DependenciesMet++
+			} else {
+				DependenciesMissed++
+			}
+
 			break
 		case types.GT:
 			// check if the event value is greater than the dependency value
+			if deiSingle == nil {
+				return errors.New("probability dependency single value is nil but type is GT")
+			}
+
+			if depEvent.Event.AssociatedProbability == nil {
+				return errors.New("dependent event does not have a probability value but type is GT for probability dependency")
+			}
+
+			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.SingleNumber, depEvent.Event.Timeframe)
+			if err != nil {
+				return err
+			}
+
+			min := *base - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+			max := *base + *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+
+			deiMin := deiSingle.Value - *deiSingle.StandardDeviation
+			deiMax := deiSingle.Value + *deiSingle.StandardDeviation
+
+			if deiMin < 0 {
+				deiMin = 0
+			}
+
+			minCF, err := utils.CoinFlip()
+			if err != nil {
+				return err
+			}
+
+			if minCF {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMin = deiMin + (r * *deiSingle.Confidence)
+			} else {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMin = deiMin - (r * *deiSingle.Confidence)
+			}
+
+			maxCF, err := utils.CoinFlip()
+			if err != nil {
+				return err
+			}
+
+			if maxCF {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMax = deiMax + (r * *deiSingle.Confidence)
+			} else {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMax = deiMax - (r * *deiSingle.Confidence)
+			}
+
+			if deiMin > min && deiMax > max {
+				DependenciesMet++
+			} else {
+				DependenciesMissed++
+			}
+
 			break
 		case types.LTE:
 			// check if the event value is less than or equal to the dependency value
+			if deiSingle == nil {
+				return errors.New("probability dependency single value is nil but type is LTE")
+			}
+			if depEvent.Event.AssociatedProbability == nil {
+				return errors.New("dependent event does not have a probability value but type is LTE for probability dependency")
+			}
+
+			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.SingleNumber, depEvent.Event.Timeframe)
+			if err != nil {
+				return err
+			}
+
+			min := *base - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+			max := *base + *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+
+			deiMin := deiSingle.Value - *deiSingle.StandardDeviation
+			deiMax := deiSingle.Value + *deiSingle.StandardDeviation
+
+			if deiMin < 0 {
+				deiMin = 0
+			}
+
+			minCF, err := utils.CoinFlip()
+			if err != nil {
+				return err
+			}
+
+			if minCF {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMin = deiMin + (r * *deiSingle.Confidence)
+			} else {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMin = deiMin - (r * *deiSingle.Confidence)
+			}
+
+			maxCF, err := utils.CoinFlip()
+			if err != nil {
+				return err
+			}
+
+			if maxCF {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMax = deiMax + (r * *deiSingle.Confidence)
+
+			} else {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMax = deiMax - (r * *deiSingle.Confidence)
+			}
+
+			if deiMin <= min && deiMax <= max {
+				DependenciesMet++
+			} else {
+				DependenciesMissed++
+			}
+
 			break
 		case types.GTE:
 			// check if the event value is greater than or equal to the dependency value
+			if deiSingle == nil {
+				return errors.New("probability dependency single value is nil but type is GTE")
+			}
+			if depEvent.Event.AssociatedProbability == nil {
+				return errors.New("dependent event does not have a probability value but type is GTE for probability dependency")
+			}
+
+			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.SingleNumber, depEvent.Event.Timeframe)
+			if err != nil {
+				return err
+			}
+
+			min := *base - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+			max := *base + *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
+
+			deiMin := deiSingle.Value - *deiSingle.StandardDeviation
+			deiMax := deiSingle.Value + *deiSingle.StandardDeviation
+
+			if deiMin < 0 {
+				deiMin = 0
+			}
+
+			minCF, err := utils.CoinFlip()
+			if err != nil {
+				return err
+			}
+
+			if minCF {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMin = deiMin + (r * *deiSingle.Confidence)
+			} else {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMin = deiMin - (r * *deiSingle.Confidence)
+			}
+
+			maxCF, err := utils.CoinFlip()
+			if err != nil {
+				return err
+			}
+
+			if maxCF {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMax = deiMax + (r * *deiSingle.Confidence)
+			} else {
+				r, err := utils.CryptoRandFloat64()
+				if err != nil {
+					return err
+				}
+
+				deiMax = deiMax - (r * *deiSingle.Confidence)
+			}
+
+			if deiMin >= min && deiMax >= max {
+				DependenciesMet++
+			} else {
+				DependenciesMissed++
+			}
+
 			break
 		default:
 			return errors.New("invalid probability dependency type")
