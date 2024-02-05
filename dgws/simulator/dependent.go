@@ -7,7 +7,7 @@ import (
 	"github.com/bcdannyboy/montecargo/dgws/utils"
 )
 
-func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, Risks []*types.Risk, Mitigations []*types.Mitigation, IndependentResults []*types.SimulationResults) error {
+func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, Risks []*types.Risk, Mitigations []*types.Mitigation, IndependentResults []*types.SimulationResults) (*types.SimulationResults, error) {
 	// 1. check what kind of dependencies the event has
 	expectedDependencies := 0
 	expectedDependencies += len(event.DependsOnCost)
@@ -42,7 +42,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		}
 
 		if depEvent == nil {
-			return errors.New("dependent event does not exist for cost dependency")
+			return nil, errors.New("dependent event does not exist for cost dependency")
 		}
 
 		// 2. simulate the cost dependencies and store the results
@@ -78,7 +78,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				result, resultSD, err := simulateRange(singleRange, depEvent.Event.Timeframe)
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if result+resultSD > 0 {
@@ -91,7 +91,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			} else if depEvent.Event.AssociatedCost.Range != nil {
 				result, resultSD, err := simulateRange(depEvent.Event.AssociatedCost.Range, depEvent.Event.Timeframe)
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if result+resultSD > 0 {
@@ -102,7 +102,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				break
 			} else {
-				return errors.New("dependent event does not have a cost value or range but type is Exists for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value or range but type is Exists for cost dependency")
 			}
 		case types.DoesNotExist:
 			// check if the event dependency does not exist
@@ -136,7 +136,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				result, resultSD, err := simulateRange(singleRange, depEvent.Event.Timeframe)
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if result+resultSD <= 0 {
@@ -147,7 +147,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			} else if depEvent.Event.AssociatedCost.Range != nil {
 				result, resultSD, err := simulateRange(depEvent.Event.AssociatedCost.Range, depEvent.Event.Timeframe)
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if result+resultSD <= 0 {
@@ -157,20 +157,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				}
 				break
 			} else {
-				return errors.New("dependent event does not have a cost value or range but type is DoesNotExist for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value or range but type is DoesNotExist for cost dependency")
 			}
 		case types.In:
 			// check if the event dependency is in a range
 			if deiRange == nil {
-				return errors.New("cost dependency range is nil but type is In")
+				return nil, errors.New("cost dependency range is nil but type is In")
 			}
 			if depEvent.Event.AssociatedCost == nil {
-				return errors.New("dependent event does not have an associated cost but type is In for cost dependency")
+				return nil, errors.New("dependent event does not have an associated cost but type is In for cost dependency")
 			}
 
 			dist, sd, err := simulateRange(deiRange, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			min := dist - sd
 			if min < 0 {
@@ -187,19 +187,19 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 				if minCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minNum = minNum + (r * *depEvent.Event.AssociatedCost.SingleNumber.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minNum = minNum - (r * *depEvent.Event.AssociatedCost.SingleNumber.Confidence)
@@ -207,20 +207,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxNum = maxNum + (r * *depEvent.Event.AssociatedCost.SingleNumber.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxNum = maxNum - (r * *depEvent.Event.AssociatedCost.SingleNumber.Confidence)
@@ -247,12 +247,12 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minLowerCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 				if minLowerCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minLower = minLower + (r * *depEvent.Event.AssociatedCost.Range.Minimum.Confidence)
@@ -260,7 +260,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 					r, err := utils.CryptoRandFloat64()
 
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minLower = minLower - (r * *depEvent.Event.AssociatedCost.Range.Minimum.Confidence)
@@ -268,20 +268,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minUpperCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minUpperCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minUpper = minUpper + (r * *depEvent.Event.AssociatedCost.Range.Minimum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minUpper = minUpper - (r * *depEvent.Event.AssociatedCost.Range.Minimum.Confidence)
@@ -289,20 +289,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxLowerCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxLowerCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxLower = maxLower + (r * *depEvent.Event.AssociatedCost.Range.Maximum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxLower = maxLower - (r * *depEvent.Event.AssociatedCost.Range.Maximum.Confidence)
@@ -310,20 +310,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxUpperCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxUpperCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxUpper = maxUpper + (r * *depEvent.Event.AssociatedCost.Range.Maximum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxUpper = maxUpper - (r * *depEvent.Event.AssociatedCost.Range.Maximum.Confidence)
@@ -336,20 +336,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				}
 				break
 			} else {
-				return errors.New("dependent event does not have a cost value or range but type is In for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value or range but type is In for cost dependency")
 			}
 		case types.Out:
 			// check if the event dependency is out of a range
 			if deiRange == nil {
-				return errors.New("cost dependency range is nil but type is Out")
+				return nil, errors.New("cost dependency range is nil but type is Out")
 			}
 			if depEvent.Event.AssociatedCost == nil {
-				return errors.New("dependent event does not have an associated cost but type is Out for cost dependency")
+				return nil, errors.New("dependent event does not have an associated cost but type is Out for cost dependency")
 			}
 
 			dist, sd, err := simulateRange(deiRange, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			min := dist - sd
 			if min < 0 {
@@ -366,20 +366,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minNum = minNum + (r * *depEvent.Event.AssociatedCost.SingleNumber.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minNum = minNum - (r * *depEvent.Event.AssociatedCost.SingleNumber.Confidence)
@@ -387,20 +387,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxNum = maxNum + (r * *depEvent.Event.AssociatedCost.SingleNumber.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxNum = maxNum - (r * *depEvent.Event.AssociatedCost.SingleNumber.Confidence)
@@ -427,20 +427,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minLowerCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minLowerCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minLower = minLower + (r * *depEvent.Event.AssociatedCost.Range.Minimum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minLower = minLower - (r * *depEvent.Event.AssociatedCost.Range.Minimum.Confidence)
@@ -448,20 +448,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minUpperCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minUpperCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minUpper = minUpper + (r * *depEvent.Event.AssociatedCost.Range.Minimum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minUpper = minUpper - (r * *depEvent.Event.AssociatedCost.Range.Minimum.Confidence)
@@ -469,20 +469,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxLowerCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxLowerCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxLower = maxLower + (r * *depEvent.Event.AssociatedCost.Range.Maximum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxLower = maxLower - (r * *depEvent.Event.AssociatedCost.Range.Maximum.Confidence)
@@ -490,20 +490,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxUpperCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxUpperCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxUpper = maxUpper + (r * *depEvent.Event.AssociatedCost.Range.Maximum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxUpper = maxUpper - (r * *depEvent.Event.AssociatedCost.Range.Maximum.Confidence)
@@ -516,18 +516,18 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				}
 				break
 			} else {
-				return errors.New("dependent event does not have a cost value or range but type is Out for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value or range but type is Out for cost dependency")
 			}
 		case types.Has:
 			// check if the event decomposition has a component
 			if deiDecomposed.Components == nil {
-				return errors.New("cost dependency decomposed components is nil but type is Has")
+				return nil, errors.New("cost dependency decomposed components is nil but type is Has")
 			}
 			if depEvent.Event.AssociatedCost == nil {
-				return errors.New("dependent event does not have an associated cost but type is Has for cost dependency")
+				return nil, errors.New("dependent event does not have an associated cost but type is Has for cost dependency")
 			}
 			if depEvent.Event.AssociatedCost.Decomposed == nil {
-				return errors.New("dependent event does not have a cost value but type is Has for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value but type is Has for cost dependency")
 			}
 
 			// check if the dependent event has a cost value
@@ -541,14 +541,14 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				}
 			}
 			if found == -1 {
-				return errors.New("dependent event has a cost value but type is Has for cost dependency")
+				return nil, errors.New("dependent event has a cost value but type is Has for cost dependency")
 			}
 
 			// check if the dependent event has a nonzero cost value
 			if deiDecomposed.Components[found].Cost.SingleNumber != nil {
 				result, err := SimulateIndependentSingleNumer(deiDecomposed.Components[found].Cost.SingleNumber, depEvent.Event.Timeframe)
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if *result > 0 {
@@ -560,7 +560,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			} else if deiDecomposed.Components[found].Cost.Range != nil {
 				result, resultSD, err := simulateRange(deiDecomposed.Components[found].Cost.Range, depEvent.Event.Timeframe)
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if result+resultSD > 0 {
@@ -570,18 +570,18 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				}
 				break
 			} else {
-				return errors.New("dependent event does not have a cost value or range but type is Has for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value or range but type is Has for cost dependency")
 			}
 		case types.HasNot:
 			// check if the event decomposition does not have a component
 			if deiDecomposed.Components == nil {
-				return errors.New("cost dependency decomposed components is nil but type is HasNot")
+				return nil, errors.New("cost dependency decomposed components is nil but type is HasNot")
 			}
 			if depEvent.Event.AssociatedCost == nil {
-				return errors.New("dependent event does not have an associated cost but type is HasNot for cost dependency")
+				return nil, errors.New("dependent event does not have an associated cost but type is HasNot for cost dependency")
 			}
 			if depEvent.Event.AssociatedCost.Decomposed == nil {
-				return errors.New("dependent event does not have a cost value but type is HasNot for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value but type is HasNot for cost dependency")
 			}
 
 			// check if the dependent event has a cost value
@@ -595,14 +595,14 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				}
 			}
 			if found != -1 {
-				return errors.New("dependent event has a cost value but type is HasNot for cost dependency")
+				return nil, errors.New("dependent event has a cost value but type is HasNot for cost dependency")
 			}
 
 			// check if the dependent event has a zero cost value
 			if deiDecomposed.Components[found].Cost.SingleNumber != nil {
 				result, err := SimulateIndependentSingleNumer(deiDecomposed.Components[found].Cost.SingleNumber, depEvent.Event.Timeframe)
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if *result <= 0 {
@@ -614,7 +614,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			} else if deiDecomposed.Components[found].Cost.Range != nil {
 				result, resultSD, err := simulateRange(deiDecomposed.Components[found].Cost.Range, depEvent.Event.Timeframe)
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if result+resultSD <= 0 {
@@ -624,25 +624,25 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				}
 
 			} else {
-				return errors.New("dependent event does not have a cost value or range but type is HasNot for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value or range but type is HasNot for cost dependency")
 			}
 
 			break
 		case types.EQ:
 			// check if the event value is equal to the dependency value
 			if deiSingle == nil {
-				return errors.New("cost dependency single value is nil but type is EQ")
+				return nil, errors.New("cost dependency single value is nil but type is EQ")
 			}
 			if depEvent.Event.AssociatedCost == nil {
-				return errors.New("dependent event does not have an associated cost but type is EQ for cost dependency")
+				return nil, errors.New("dependent event does not have an associated cost but type is EQ for cost dependency")
 			}
 			if depEvent.Event.AssociatedCost.SingleNumber == nil {
-				return errors.New("dependent event does not have a cost value but type is EQ for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value but type is EQ for cost dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedCost.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedCost.SingleNumber.StandardDeviation
@@ -657,20 +657,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -678,20 +678,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -707,18 +707,18 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.NEQ:
 			// check if the event value is not equal to the dependency value
 			if deiSingle == nil {
-				return errors.New("cost dependency single value is nil but type is NEQ")
+				return nil, errors.New("cost dependency single value is nil but type is NEQ")
 			}
 			if depEvent.Event.AssociatedCost == nil {
-				return errors.New("dependent event does not have an associated cost but type is NEQ for cost dependency")
+				return nil, errors.New("dependent event does not have an associated cost but type is NEQ for cost dependency")
 			}
 			if depEvent.Event.AssociatedCost.SingleNumber == nil {
-				return errors.New("dependent event does not have a cost value but type is NEQ for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value but type is NEQ for cost dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedCost.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedCost.SingleNumber.StandardDeviation
@@ -733,13 +733,13 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
@@ -747,7 +747,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				r, err := utils.CryptoRandFloat64()
 
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -755,21 +755,21 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -784,18 +784,18 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.LT:
 			// check if the event value is less than the dependency value
 			if deiSingle == nil {
-				return errors.New("cost dependency single value is nil but type is LT")
+				return nil, errors.New("cost dependency single value is nil but type is LT")
 			}
 			if depEvent.Event.AssociatedCost == nil {
-				return errors.New("dependent event does not have an associated cost but type is LT for cost dependency")
+				return nil, errors.New("dependent event does not have an associated cost but type is LT for cost dependency")
 			}
 			if depEvent.Event.AssociatedCost.SingleNumber == nil {
-				return errors.New("dependent event does not have a cost value but type is LT for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value but type is LT for cost dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedCost.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedCost.SingleNumber.StandardDeviation
@@ -810,20 +810,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -831,20 +831,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -859,18 +859,18 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.GT:
 			// check if the event value is greater than the dependency value
 			if deiSingle == nil {
-				return errors.New("cost dependency single value is nil but type is GT")
+				return nil, errors.New("cost dependency single value is nil but type is GT")
 			}
 			if depEvent.Event.AssociatedCost == nil {
-				return errors.New("dependent event does not have an associated cost but type is GT for cost dependency")
+				return nil, errors.New("dependent event does not have an associated cost but type is GT for cost dependency")
 			}
 			if depEvent.Event.AssociatedCost.SingleNumber == nil {
-				return errors.New("dependent event does not have a cost value but type is GT for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value but type is GT for cost dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedCost.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedCost.SingleNumber.StandardDeviation
@@ -885,20 +885,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -906,20 +906,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -934,18 +934,18 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.LTE:
 			// check if the event value is less than or equal to the dependency value
 			if deiSingle == nil {
-				return errors.New("cost dependency single value is nil but type is LTE")
+				return nil, errors.New("cost dependency single value is nil but type is LTE")
 			}
 			if depEvent.Event.AssociatedCost == nil {
-				return errors.New("dependent event does not have an associated cost but type is LTE for cost dependency")
+				return nil, errors.New("dependent event does not have an associated cost but type is LTE for cost dependency")
 			}
 			if depEvent.Event.AssociatedCost.SingleNumber == nil {
-				return errors.New("dependent event does not have a cost value but type is LTE for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value but type is LTE for cost dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedCost.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedCost.SingleNumber.StandardDeviation
@@ -960,20 +960,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -981,20 +981,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -1009,18 +1009,18 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.GTE:
 			// check if the event value is greater than or equal to the dependency value
 			if deiSingle == nil {
-				return errors.New("cost dependency single value is nil but type is GTE")
+				return nil, errors.New("cost dependency single value is nil but type is GTE")
 			}
 			if depEvent.Event.AssociatedCost == nil {
-				return errors.New("dependent event does not have an associated cost but type is GTE for cost dependency")
+				return nil, errors.New("dependent event does not have an associated cost but type is GTE for cost dependency")
 			}
 			if depEvent.Event.AssociatedCost.SingleNumber == nil {
-				return errors.New("dependent event does not have a cost value but type is GTE for cost dependency")
+				return nil, errors.New("dependent event does not have a cost value but type is GTE for cost dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedCost.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedCost.SingleNumber.StandardDeviation
@@ -1035,20 +1035,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -1056,20 +1056,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -1082,7 +1082,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			}
 			break
 		default:
-			return errors.New("invalid cost dependency type")
+			return nil, errors.New("invalid cost dependency type")
 		}
 	}
 
@@ -1108,7 +1108,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		}
 
 		if depEvent == nil {
-			return errors.New("dependent event is nil")
+			return nil, errors.New("dependent event is nil")
 		}
 
 		// 2. simulate the impact dependencies and store the results
@@ -1116,12 +1116,12 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.In:
 			// check if the event dependency is in a range
 			if deiRange == nil {
-				return errors.New("impact dependency range is nil but type is In")
+				return nil, errors.New("impact dependency range is nil but type is In")
 			}
 
 			dist, sd, err := simulateRange(deiRange, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := dist - sd
@@ -1140,20 +1140,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minNum = minNum + (r * *depEvent.Event.AssociatedImpact.SingleNumber.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minNum = minNum - (r * *depEvent.Event.AssociatedImpact.SingleNumber.Confidence)
@@ -1161,20 +1161,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxNum = maxNum + (r * *depEvent.Event.AssociatedImpact.SingleNumber.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxNum = maxNum - (r * *depEvent.Event.AssociatedImpact.SingleNumber.Confidence)
@@ -1197,20 +1197,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minLowerCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minLowerCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minLower = minLower + (r * *depEvent.Event.AssociatedImpact.Range.Minimum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minLower = minLower - (r * *depEvent.Event.AssociatedImpact.Range.Minimum.Confidence)
@@ -1218,20 +1218,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minUpperCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minUpperCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minUpper = minUpper + (r * *depEvent.Event.AssociatedImpact.Range.Minimum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minUpper = minUpper - (r * *depEvent.Event.AssociatedImpact.Range.Minimum.Confidence)
@@ -1243,20 +1243,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxLowerCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxLowerCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxLower = maxLower + (r * *depEvent.Event.AssociatedImpact.Range.Maximum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxLower = maxLower - (r * *depEvent.Event.AssociatedImpact.Range.Maximum.Confidence)
@@ -1264,20 +1264,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxUpperCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxUpperCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxUpper = maxUpper + (r * *depEvent.Event.AssociatedImpact.Range.Maximum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxUpper = maxUpper - (r * *depEvent.Event.AssociatedImpact.Range.Maximum.Confidence)
@@ -1289,18 +1289,18 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 					DependenciesMissed++
 				}
 			} else {
-				return errors.New("dependent event does not have an impact value or range but type is In for impact dependency")
+				return nil, errors.New("dependent event does not have an impact value or range but type is In for impact dependency")
 			}
 			break
 		case types.Out:
 			// check if the event dependency is out of a range
 			if deiRange == nil {
-				return errors.New("impact dependency range is nil but type is Out")
+				return nil, errors.New("impact dependency range is nil but type is Out")
 			}
 
 			dist, sd, err := simulateRange(deiRange, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := dist - sd
@@ -1320,13 +1320,13 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minNum = minNum + (r * *depEvent.Event.AssociatedImpact.SingleNumber.Confidence)
@@ -1334,7 +1334,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 					r, err := utils.CryptoRandFloat64()
 
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minNum = minNum - (r * *depEvent.Event.AssociatedImpact.SingleNumber.Confidence)
@@ -1342,20 +1342,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxNum = maxNum + (r * *depEvent.Event.AssociatedImpact.SingleNumber.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxNum = maxNum - (r * *depEvent.Event.AssociatedImpact.SingleNumber.Confidence)
@@ -1378,20 +1378,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minLowerCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minLowerCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minLower = minLower + (r * *depEvent.Event.AssociatedImpact.Range.Minimum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minLower = minLower - (r * *depEvent.Event.AssociatedImpact.Range.Minimum.Confidence)
@@ -1399,20 +1399,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minUpperCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minUpperCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minUpper = minUpper + (r * *depEvent.Event.AssociatedImpact.Range.Minimum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minUpper = minUpper - (r * *depEvent.Event.AssociatedImpact.Range.Minimum.Confidence)
@@ -1424,20 +1424,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxLowerCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxLowerCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxLower = maxLower + (r * *depEvent.Event.AssociatedImpact.Range.Maximum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxLower = maxLower - (r * *depEvent.Event.AssociatedImpact.Range.Maximum.Confidence)
@@ -1445,20 +1445,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxUpperCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxUpperCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxUpper = maxUpper + (r * *depEvent.Event.AssociatedImpact.Range.Maximum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxUpper = maxUpper - (r * *depEvent.Event.AssociatedImpact.Range.Maximum.Confidence)
@@ -1471,20 +1471,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				}
 
 			} else {
-				return errors.New("dependent event does not have an impact value or range but type is Out for impact dependency")
+				return nil, errors.New("dependent event does not have an impact value or range but type is Out for impact dependency")
 			}
 
 			break
 		case types.Has:
 			// check if the event decomposition has a component
 			if deiDecomposed.Components == nil {
-				return errors.New("impact dependency decomposed components is nil but type is Has")
+				return nil, errors.New("impact dependency decomposed components is nil but type is Has")
 			}
 			if depEvent.Event.AssociatedImpact == nil {
-				return errors.New("dependent event does not have an associated impact but type is Has for impact dependency")
+				return nil, errors.New("dependent event does not have an associated impact but type is Has for impact dependency")
 			}
 			if depEvent.Event.AssociatedImpact.Decomposed == nil {
-				return errors.New("dependent event does not have an impact value but type is Has for impact dependency")
+				return nil, errors.New("dependent event does not have an impact value but type is Has for impact dependency")
 			}
 
 			// check if the dependent event has a impact value
@@ -1500,14 +1500,14 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			}
 
 			if found == -1 {
-				return errors.New("dependent event does not have an impact value but type is Has for impact dependency")
+				return nil, errors.New("dependent event does not have an impact value but type is Has for impact dependency")
 			}
 
 			if depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact != nil {
 				if depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.SingleNumber != nil {
 					result, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.SingleNumber, depEvent.Event.Timeframe)
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					if *result > 0 {
@@ -1518,7 +1518,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				} else if depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.Range != nil {
 					result, resultSD, err := simulateRange(depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.Range, depEvent.Event.Timeframe)
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					if result+resultSD > 0 {
@@ -1528,20 +1528,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 					}
 					break
 				} else {
-					return errors.New("dependent event does not have an impact value but type is Has for impact dependency")
+					return nil, errors.New("dependent event does not have an impact value but type is Has for impact dependency")
 				}
 			} else {
-				return errors.New("dependent event does not have an impact value but type is Has for impact dependency")
+				return nil, errors.New("dependent event does not have an impact value but type is Has for impact dependency")
 			}
 
 			break
 		case types.HasNot:
 			// check if the event decomposition does not have a component
 			if deiDecomposed.Components == nil {
-				return errors.New("impact dependency decomposed components is nil but type is HasNot")
+				return nil, errors.New("impact dependency decomposed components is nil but type is HasNot")
 			}
 			if depEvent.Event.AssociatedImpact == nil {
-				return errors.New("dependent event does not have an associated impact but type is HasNot for impact dependency")
+				return nil, errors.New("dependent event does not have an associated impact but type is HasNot for impact dependency")
 			}
 
 			// check if the dependent event has a impact value
@@ -1557,14 +1557,14 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			}
 
 			if found == -1 {
-				return errors.New("dependent event does not have an impact value but type is HasNot for impact dependency")
+				return nil, errors.New("dependent event does not have an impact value but type is HasNot for impact dependency")
 			}
 
 			if depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact != nil {
 				if depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.SingleNumber != nil {
 					result, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.SingleNumber, depEvent.Event.Timeframe)
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					if *result <= 0 {
@@ -1575,7 +1575,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				} else if depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.Range != nil {
 					result, resultSD, err := simulateRange(depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.Range, depEvent.Event.Timeframe)
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					if result+resultSD <= 0 {
@@ -1584,26 +1584,26 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 						DependenciesMissed++
 					}
 				} else {
-					return errors.New("dependent event does not have an impact value but type is HasNot for impact dependency")
+					return nil, errors.New("dependent event does not have an impact value but type is HasNot for impact dependency")
 				}
 			} else {
-				return errors.New("dependent event does not have an impact value but type is HasNot for impact dependency")
+				return nil, errors.New("dependent event does not have an impact value but type is HasNot for impact dependency")
 			}
 
 			break
 		case types.EQ:
 			// check if the event value is equal to the dependency value
 			if deiSingle == nil {
-				return errors.New("impact dependency single value is nil but type is EQ")
+				return nil, errors.New("impact dependency single value is nil but type is EQ")
 			}
 
 			if depEvent.Event.AssociatedImpact.SingleNumber == nil {
-				return errors.New("dependent event does not have an impact value but type is EQ for impact dependency")
+				return nil, errors.New("dependent event does not have an impact value but type is EQ for impact dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedImpact.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedImpact.SingleNumber.StandardDeviation
@@ -1618,20 +1618,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -1640,20 +1640,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -1668,15 +1668,15 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.NEQ:
 			// check if the event value is not equal to the dependency value
 			if deiSingle == nil {
-				return errors.New("impact dependency single value is nil but type is NEQ")
+				return nil, errors.New("impact dependency single value is nil but type is NEQ")
 			}
 			if depEvent.Event.AssociatedImpact == nil {
-				return errors.New("dependent event does not have an associated impact but type is NEQ for impact dependency")
+				return nil, errors.New("dependent event does not have an associated impact but type is NEQ for impact dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedImpact.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedImpact.SingleNumber.StandardDeviation
@@ -1691,20 +1691,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -1712,20 +1712,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -1741,15 +1741,15 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.LT:
 			// check if the event value is less than the dependency value
 			if deiSingle == nil {
-				return errors.New("impact dependency single value is nil but type is LT")
+				return nil, errors.New("impact dependency single value is nil but type is LT")
 			}
 			if depEvent.Event.AssociatedImpact == nil {
-				return errors.New("dependent event does not have an associated impact but type is LT for impact dependency")
+				return nil, errors.New("dependent event does not have an associated impact but type is LT for impact dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedImpact.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedImpact.SingleNumber.StandardDeviation
@@ -1764,20 +1764,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -1785,20 +1785,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -1813,15 +1813,15 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.GT:
 			// check if the event value is greater than the dependency value
 			if deiSingle == nil {
-				return errors.New("impact dependency single value is nil but type is GT")
+				return nil, errors.New("impact dependency single value is nil but type is GT")
 			}
 			if depEvent.Event.AssociatedImpact == nil {
-				return errors.New("dependent event does not have an associated impact but type is GT for impact dependency")
+				return nil, errors.New("dependent event does not have an associated impact but type is GT for impact dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedImpact.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedImpact.SingleNumber.StandardDeviation
@@ -1836,20 +1836,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -1857,20 +1857,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -1886,15 +1886,15 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.LTE:
 			// check if the event value is less than or equal to the dependency value
 			if deiSingle == nil {
-				return errors.New("impact dependency single value is nil but type is LTE")
+				return nil, errors.New("impact dependency single value is nil but type is LTE")
 			}
 			if depEvent.Event.AssociatedImpact == nil {
-				return errors.New("dependent event does not have an associated impact but type is LTE for impact dependency")
+				return nil, errors.New("dependent event does not have an associated impact but type is LTE for impact dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedImpact.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedImpact.SingleNumber.StandardDeviation
@@ -1909,20 +1909,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -1930,13 +1930,13 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
@@ -1944,7 +1944,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -1960,15 +1960,15 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.GTE:
 			// check if the event value is greater than or equal to the dependency value
 			if deiSingle == nil {
-				return errors.New("impact dependency single value is nil but type is GTE")
+				return nil, errors.New("impact dependency single value is nil but type is GTE")
 			}
 			if depEvent.Event.AssociatedImpact == nil {
-				return errors.New("dependent event does not have an associated impact but type is GTE for impact dependency")
+				return nil, errors.New("dependent event does not have an associated impact but type is GTE for impact dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedImpact.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedImpact.SingleNumber.StandardDeviation
@@ -1983,20 +1983,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -2004,20 +2004,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -2031,7 +2031,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			break
 		default:
-			return errors.New("invalid impact dependency type")
+			return nil, errors.New("invalid impact dependency type")
 		}
 	}
 
@@ -2057,7 +2057,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		}
 
 		if depEvent == nil {
-			return errors.New("dependent event is nil")
+			return nil, errors.New("dependent event is nil")
 		}
 
 		// 2. simulate the probability dependencies and store the results
@@ -2065,12 +2065,12 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.In:
 			// check if the event dependency is in a range
 			if deiRange == nil {
-				return errors.New("probability dependency range is nil but type is In")
+				return nil, errors.New("probability dependency range is nil but type is In")
 			}
 
 			dist, sd, err := simulateRange(deiRange, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := dist - sd
@@ -2090,13 +2090,13 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minNum = minNum + (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
@@ -2104,7 +2104,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minNum = minNum - (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
@@ -2112,20 +2112,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxNum = maxNum + (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxNum = maxNum - (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
@@ -2149,20 +2149,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minLowerCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minLowerCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minLower = minLower + (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minLower = minLower - (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
@@ -2170,20 +2170,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minUpperCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minUpperCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minUpper = minUpper + (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minUpper = minUpper - (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
@@ -2195,20 +2195,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxLowerCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxLowerCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxLower = maxLower + (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxLower = maxLower - (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
@@ -2216,20 +2216,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxUpperCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxUpperCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxUpper = maxUpper + (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxUpper = maxUpper - (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
@@ -2241,19 +2241,19 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 					DependenciesMissed++
 				}
 			} else {
-				return errors.New("dependent event does not have a probability value or range but type is In for probability dependency")
+				return nil, errors.New("dependent event does not have a probability value or range but type is In for probability dependency")
 			}
 
 			break
 		case types.Out:
 			// check if the event dependency is out of a range
 			if deiRange == nil {
-				return errors.New("probability dependency range is nil but type is Out")
+				return nil, errors.New("probability dependency range is nil but type is Out")
 			}
 
 			dist, sd, err := simulateRange(deiRange, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := dist - sd
@@ -2273,13 +2273,13 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minNum = minNum + (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
@@ -2287,7 +2287,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 					r, err := utils.CryptoRandFloat64()
 
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minNum = minNum - (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
@@ -2295,20 +2295,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxNum = maxNum + (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxNum = maxNum - (r * *depEvent.Event.AssociatedProbability.SingleNumber.Confidence)
@@ -2332,20 +2332,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minLowerCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minLowerCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minLower = minLower + (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minLower = minLower - (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
@@ -2353,20 +2353,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				minUpperCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if minUpperCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minUpper = minUpper + (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					minUpper = minUpper - (r * *depEvent.Event.AssociatedProbability.Range.Minimum.Confidence)
@@ -2378,20 +2378,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxLowerCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxLowerCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxLower = maxLower + (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxLower = maxLower - (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
@@ -2399,20 +2399,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				maxUpperCF, err := utils.CoinFlip()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				if maxUpperCF {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxUpper = maxUpper + (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
 				} else {
 					r, err := utils.CryptoRandFloat64()
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					maxUpper = maxUpper - (r * *depEvent.Event.AssociatedProbability.Range.Maximum.Confidence)
@@ -2425,13 +2425,13 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				}
 
 			} else {
-				return errors.New("dependent event does not have a probability value or range but type is Out for probability dependency")
+				return nil, errors.New("dependent event does not have a probability value or range but type is Out for probability dependency")
 			}
 			break
 		case types.Has:
 			// check if the event decomposition has a component
 			if deiDecomposed.Components == nil {
-				return errors.New("probability dependency decomposed components is nil but type is Has")
+				return nil, errors.New("probability dependency decomposed components is nil but type is Has")
 			}
 
 			// check if the dependent event has a probability value
@@ -2447,14 +2447,14 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			}
 
 			if found == -1 {
-				return errors.New("dependent event does not have a probability value but type is Has for probability dependency")
+				return nil, errors.New("dependent event does not have a probability value but type is Has for probability dependency")
 			}
 
 			if depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability != nil {
 				if depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.SingleNumber != nil {
 					result, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.SingleNumber, depEvent.Event.Timeframe)
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					if *result > 0 {
@@ -2467,7 +2467,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 					result, resultSD, err := simulateRange(depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.Range, depEvent.Event.Timeframe)
 
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					if result+resultSD > 0 {
@@ -2477,17 +2477,17 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 					}
 
 				} else {
-					return errors.New("dependent event does not have a probability value but type is Has for probability dependency")
+					return nil, errors.New("dependent event does not have a probability value but type is Has for probability dependency")
 				}
 			} else {
-				return errors.New("dependent event does not have a probability value but type is Has for probability dependency")
+				return nil, errors.New("dependent event does not have a probability value but type is Has for probability dependency")
 			}
 
 			break
 		case types.HasNot:
 			// check if the event decomposition does not have a component
 			if deiDecomposed.Components == nil {
-				return errors.New("probability dependency decomposed components is nil but type is HasNot")
+				return nil, errors.New("probability dependency decomposed components is nil but type is HasNot")
 			}
 
 			// check if the dependent event has a probability value
@@ -2503,14 +2503,14 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			}
 
 			if found == -1 {
-				return errors.New("dependent event does not have a probability value but type is HasNot for probability dependency")
+				return nil, errors.New("dependent event does not have a probability value but type is HasNot for probability dependency")
 			}
 
 			if depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability != nil {
 				if depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.SingleNumber != nil {
 					result, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.SingleNumber, depEvent.Event.Timeframe)
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					if *result <= 0 {
@@ -2523,7 +2523,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 					result, resultSD, err := simulateRange(depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.Range, depEvent.Event.Timeframe)
 
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					if result+resultSD <= 0 {
@@ -2533,25 +2533,25 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 					}
 
 				} else {
-					return errors.New("dependent event does not have a probability value but type is HasNot for probability dependency")
+					return nil, errors.New("dependent event does not have a probability value but type is HasNot for probability dependency")
 				}
 			} else {
-				return errors.New("dependent event does not have a probability value but type is HasNot for probability dependency")
+				return nil, errors.New("dependent event does not have a probability value but type is HasNot for probability dependency")
 			}
 
 			break
 		case types.EQ:
 			// check if the event value is equal to the dependency value
 			if deiSingle == nil {
-				return errors.New("probability dependency single value is nil but type is EQ")
+				return nil, errors.New("probability dependency single value is nil but type is EQ")
 			}
 			if depEvent.Event.AssociatedProbability.SingleNumber == nil {
-				return errors.New("dependent event does not have a probability value but type is EQ for probability dependency")
+				return nil, errors.New("dependent event does not have a probability value but type is EQ for probability dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
@@ -2566,20 +2566,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -2587,13 +2587,13 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
@@ -2601,7 +2601,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -2617,15 +2617,15 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.NEQ:
 			// check if the event value is not equal to the dependency value
 			if deiSingle == nil {
-				return errors.New("probability dependency single value is nil but type is NEQ")
+				return nil, errors.New("probability dependency single value is nil but type is NEQ")
 			}
 			if depEvent.Event.AssociatedProbability == nil {
-				return errors.New("dependent event does not have a probability value but type is NEQ for probability dependency")
+				return nil, errors.New("dependent event does not have a probability value but type is NEQ for probability dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
@@ -2640,20 +2640,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -2661,20 +2661,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -2690,15 +2690,15 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.LT:
 			// check if the event value is less than the dependency value
 			if deiSingle == nil {
-				return errors.New("probability dependency single value is nil but type is LT")
+				return nil, errors.New("probability dependency single value is nil but type is LT")
 			}
 			if depEvent.Event.AssociatedProbability == nil {
-				return errors.New("dependent event does not have a probability value but type is LT for probability dependency")
+				return nil, errors.New("dependent event does not have a probability value but type is LT for probability dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
@@ -2713,20 +2713,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -2734,13 +2734,13 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
@@ -2748,7 +2748,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 
 				}
 
@@ -2765,16 +2765,16 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.GT:
 			// check if the event value is greater than the dependency value
 			if deiSingle == nil {
-				return errors.New("probability dependency single value is nil but type is GT")
+				return nil, errors.New("probability dependency single value is nil but type is GT")
 			}
 
 			if depEvent.Event.AssociatedProbability == nil {
-				return errors.New("dependent event does not have a probability value but type is GT for probability dependency")
+				return nil, errors.New("dependent event does not have a probability value but type is GT for probability dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
@@ -2789,20 +2789,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -2810,20 +2810,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -2839,15 +2839,15 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.LTE:
 			// check if the event value is less than or equal to the dependency value
 			if deiSingle == nil {
-				return errors.New("probability dependency single value is nil but type is LTE")
+				return nil, errors.New("probability dependency single value is nil but type is LTE")
 			}
 			if depEvent.Event.AssociatedProbability == nil {
-				return errors.New("dependent event does not have a probability value but type is LTE for probability dependency")
+				return nil, errors.New("dependent event does not have a probability value but type is LTE for probability dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
@@ -2862,20 +2862,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -2883,13 +2883,13 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
@@ -2897,7 +2897,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -2913,15 +2913,15 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		case types.GTE:
 			// check if the event value is greater than or equal to the dependency value
 			if deiSingle == nil {
-				return errors.New("probability dependency single value is nil but type is GTE")
+				return nil, errors.New("probability dependency single value is nil but type is GTE")
 			}
 			if depEvent.Event.AssociatedProbability == nil {
-				return errors.New("dependent event does not have a probability value but type is GTE for probability dependency")
+				return nil, errors.New("dependent event does not have a probability value but type is GTE for probability dependency")
 			}
 
 			base, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.SingleNumber, depEvent.Event.Timeframe)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			min := *base - *depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation
@@ -2936,20 +2936,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			minCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if minCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMin = deiMin - (r * *deiSingle.Confidence)
@@ -2957,20 +2957,20 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			maxCF, err := utils.CoinFlip()
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if maxCF {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax + (r * *deiSingle.Confidence)
 			} else {
 				r, err := utils.CryptoRandFloat64()
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				deiMax = deiMax - (r * *deiSingle.Confidence)
@@ -2984,87 +2984,110 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 
 			break
 		default:
-			return errors.New("invalid probability dependency type")
+			return nil, errors.New("invalid probability dependency type")
 		}
 	}
 
 	for _, riskDependency := range event.DependsOnRisk {
-		dei := riskDependency.DependentEventID
-
-		// 2. simulate the risk dependencies and store the results
+		// Simulate the risk dependencies and store the results
 		switch riskDependency.Type {
-		case types.Exists:
-			// check if the event dependency exists
-			break
-		case types.DoesNotExist:
-			// check if the event dependency does not exist
-			break
+		case types.Exists, types.DoesNotExist:
+			// Find the risk by ID
+			var riskExists bool
+			for _, risk := range Risks {
+				if risk.ID == *riskDependency.DependentRiskID {
+					// Check if the risk's probability is non-zero (exists) or zero (does not exist)
+					if risk.Probability != nil && risk.Probability.SingleNumber != nil {
+						if risk.Probability.SingleNumber.Value > 0 {
+							riskExists = true
+						}
+						break
+					}
+				}
+			}
+
+			if (riskDependency.Type == types.Exists && !riskExists) || (riskDependency.Type == types.DoesNotExist && riskExists) {
+				DependenciesMissed++
+			} else {
+				DependenciesMet++
+			}
 		default:
-			return errors.New("invalid probability dependency type")
+			return nil, errors.New("invalid risk dependency type")
 		}
 	}
 
 	for _, eventDependency := range event.DependsOnEvent {
-		dei := eventDependency.DependentEventID
+		// Simulate the event dependencies and store the results
+		var eventExists bool
+		for _, independentResult := range IndependentResults {
+			if independentResult.EventID == eventDependency.DependentEventID {
+				if independentResult.Probability > 0 {
+					eventExists = true
+				}
+				break
+			}
+		}
 
-		// 2. simulate the event dependencies and store the results
 		switch eventDependency.Type {
 		case types.Happens:
-			// check if the event dependency happens
-			break
+			if !eventExists {
+				DependenciesMissed++
+			} else {
+				DependenciesMet++
+			}
 		case types.DoesNotHappen:
-			// check if the event dependency does not happen
-			break
+			if eventExists {
+				DependenciesMissed++
+			} else {
+				DependenciesMet++
+			}
 		default:
-			return errors.New("invalid event dependency type")
+			return nil, errors.New("invalid event dependency type")
 		}
 	}
 
 	for _, mitigationDependency := range event.DependsOnMitigation {
-		dei := mitigationDependency.DependentEventID
+		// Simulate the mitigation dependencies and store the results
+		var mitigationExists bool
+		for _, mitigation := range Mitigations {
+			if mitigation.ID == *mitigationDependency.DependentMitigationOrRiskID {
+				if mitigation.Probability != nil && mitigation.Probability.SingleNumber != nil {
+					if mitigation.Probability.SingleNumber.Value > 0 {
+						mitigationExists = true
+					}
+					break
+				}
+			}
+		}
 
-		// 2. simulate the mitigation dependencies and store the results
 		switch mitigationDependency.Type {
 		case types.Exists:
-			// check if the event dependency exists
-			break
+			if !mitigationExists {
+				DependenciesMissed++
+			} else {
+				DependenciesMet++
+			}
 		case types.DoesNotExist:
-			// check if the event dependency does not exist
-			break
-		case types.In:
-			// check if the event dependency is in a range
-			break
-		case types.Out:
-			// check if the event dependency is out of a range
-			break
-		case types.Has:
-			// check if the event decomposition has a component
-			break
-		case types.HasNot:
-			// check if the event decomposition does not have a component
-			break
-		case types.EQ:
-			// check if the event value is equal to the dependency value
-			break
-		case types.NEQ:
-			// check if the event value is not equal to the dependency value
-			break
-		case types.LT:
-			// check if the event value is less than the dependency value
-			break
-		case types.GT:
-			// check if the event value is greater than the dependency value
-			break
-		case types.LTE:
-			// check if the event value is less than or equal to the dependency value
-			break
-		case types.GTE:
-			// check if the event value is greater than or equal to the dependency value
-			break
+			if mitigationExists {
+				DependenciesMissed++
+			} else {
+				DependenciesMet++
+			}
 		default:
-			return errors.New("invalid impact dependency type")
+			return nil, errors.New("invalid mitigation dependency type")
 		}
 	}
 
-	return nil
+	// Evaluate if all dependencies are met
+	if DependenciesMet == expectedDependencies {
+
+		eventAsIndependent := &utils.FilteredEvent{
+			Event:       event,
+			Independent: true,
+		}
+
+		return SimulateIndependentEvent(eventAsIndependent)
+	} else {
+		return nil, errors.New("not all dependencies are met")
+	}
 }
