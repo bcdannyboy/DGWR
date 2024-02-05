@@ -6,17 +6,21 @@ type SingleNumber struct {
 	Confidence        *float64 `json:"confidence,omitempty"`
 }
 
+type Minimum struct {
+	Value             float64  `json:"value,omitempty"`
+	StandardDeviation *float64 `json:"standard_deviation,omitempty"`
+	Confidence        *float64 `json:"confidence,omitempty"`
+}
+
+type Maximum struct {
+	Value             float64  `json:"value,omitempty"`
+	StandardDeviation *float64 `json:"standard_deviation,omitempty"`
+	Confidence        *float64 `json:"confidence,omitempty"`
+}
+
 type Range struct {
-	Minimum struct {
-		Value             float64  `json:"value,omitempty"`
-		StandardDeviation *float64 `json:"standard_deviation,omitempty"`
-		Confidence        *float64 `json:"confidence,omitempty"`
-	}
-	Maximum struct {
-		Value             float64  `json:"value,omitempty"`
-		StandardDeviation *float64 `json:"standard_deviation,omitempty"`
-		Confidence        *float64 `json:"confidence,omitempty"`
-	}
+	Minimum Minimum
+	Maximum Maximum
 }
 
 type DecomposedComponent struct {

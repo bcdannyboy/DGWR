@@ -49,27 +49,116 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 		switch costDependency.Type {
 		case types.Exists:
 			// check if the event dependency exists
-			if depEvent == nil {
-				// event does not exist, so the dependent event does not happen
+			// existence for a cost means the dependency event has a non-zero cost value after simulation
+			if depEvent.Event.AssociatedCost == nil {
 				DependenciesMissed++
 				break
 			}
 
-			// event exists, so the dependent event happens
-			DependenciesMet++
+			if depEvent.Event.AssociatedCost.SingleNumber != nil {
+				val := depEvent.Event.AssociatedCost.SingleNumber.Value
+				sd := *depEvent.Event.AssociatedCost.SingleNumber.StandardDeviation
+				conf := *depEvent.Event.AssociatedCost.SingleNumber.Confidence
+				if conf == 0 {
+					conf = 0.5
+				}
 
-			break
+				singleRange := &types.Range{
+					Minimum: types.Minimum{
+						Value:             val,
+						StandardDeviation: &sd,
+						Confidence:        &conf,
+					},
+					Maximum: types.Maximum{
+						Value:             val,
+						StandardDeviation: &sd,
+						Confidence:        &conf,
+					},
+				}
+
+				result, resultSD, err := simulateRange(singleRange, depEvent.Event.Timeframe)
+				if err != nil {
+					return err
+				}
+
+				if result+resultSD > 0 {
+					DependenciesMet++
+				} else {
+					DependenciesMissed++
+				}
+
+				break
+			} else if depEvent.Event.AssociatedCost.Range != nil {
+				result, resultSD, err := simulateRange(depEvent.Event.AssociatedCost.Range, depEvent.Event.Timeframe)
+				if err != nil {
+					return err
+				}
+
+				if result+resultSD > 0 {
+					DependenciesMet++
+				} else {
+					DependenciesMissed++
+				}
+
+				break
+			} else {
+				return errors.New("dependent event does not have a cost value or range but type is Exists for cost dependency")
+			}
 		case types.DoesNotExist:
 			// check if the event dependency does not exist
-			if depEvent != nil {
-				// event exists, so the dependent event does not happen
-				DependenciesMissed++
+			// non-existence for a cost means the dependency event has a zero cost value after simulation
+			if depEvent.Event.AssociatedCost == nil {
+				DependenciesMet++
 				break
 			}
 
-			// event does not exist, so the dependent event happens
-			DependenciesMet++
-			break
+			if depEvent.Event.AssociatedCost.SingleNumber != nil {
+				val := depEvent.Event.AssociatedCost.SingleNumber.Value
+				sd := *depEvent.Event.AssociatedCost.SingleNumber.StandardDeviation
+				conf := *depEvent.Event.AssociatedCost.SingleNumber.Confidence
+				if conf == 0 {
+					conf = 0.5
+				}
+
+				singleRange := &types.Range{
+					Minimum: types.Minimum{
+						Value:             val,
+						StandardDeviation: &sd,
+						Confidence:        &conf,
+					},
+
+					Maximum: types.Maximum{
+						Value:             val,
+						StandardDeviation: &sd,
+						Confidence:        &conf,
+					},
+				}
+
+				result, resultSD, err := simulateRange(singleRange, depEvent.Event.Timeframe)
+				if err != nil {
+					return err
+				}
+
+				if result+resultSD <= 0 {
+					DependenciesMet++
+				} else {
+					DependenciesMissed++
+				}
+			} else if depEvent.Event.AssociatedCost.Range != nil {
+				result, resultSD, err := simulateRange(depEvent.Event.AssociatedCost.Range, depEvent.Event.Timeframe)
+				if err != nil {
+					return err
+				}
+
+				if result+resultSD <= 0 {
+					DependenciesMet++
+				} else {
+					DependenciesMissed++
+				}
+				break
+			} else {
+				return errors.New("dependent event does not have a cost value or range but type is DoesNotExist for cost dependency")
+			}
 		case types.In:
 			// check if the event dependency is in a range
 			if deiRange == nil {
@@ -442,22 +531,47 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			}
 
 			// check if the dependent event has a cost value
-			found := false
+			found := -1
 			for i := 0; i < len(deiDecomposed.Components); i++ {
 				for j := 0; j < len(depEvent.Event.AssociatedCost.Decomposed.Components); j++ {
 					if deiDecomposed.Components[i].Name == depEvent.Event.AssociatedCost.Decomposed.Components[j].Name {
-						found = true
+						found = j
 						break
 					}
 				}
 			}
-			if found {
-				DependenciesMet++
-			} else {
-				DependenciesMissed++
+			if found == -1 {
+				return errors.New("dependent event has a cost value but type is Has for cost dependency")
 			}
 
-			break
+			// check if the dependent event has a nonzero cost value
+			if deiDecomposed.Components[found].Cost.SingleNumber != nil {
+				result, err := SimulateIndependentSingleNumer(deiDecomposed.Components[found].Cost.SingleNumber, depEvent.Event.Timeframe)
+				if err != nil {
+					return err
+				}
+
+				if *result > 0 {
+					DependenciesMet++
+				} else {
+					DependenciesMissed++
+				}
+				break
+			} else if deiDecomposed.Components[found].Cost.Range != nil {
+				result, resultSD, err := simulateRange(deiDecomposed.Components[found].Cost.Range, depEvent.Event.Timeframe)
+				if err != nil {
+					return err
+				}
+
+				if result+resultSD > 0 {
+					DependenciesMet++
+				} else {
+					DependenciesMissed++
+				}
+				break
+			} else {
+				return errors.New("dependent event does not have a cost value or range but type is Has for cost dependency")
+			}
 		case types.HasNot:
 			// check if the event decomposition does not have a component
 			if deiDecomposed.Components == nil {
@@ -471,19 +585,46 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			}
 
 			// check if the dependent event has a cost value
-			found := false
+			found := -1
 			for i := 0; i < len(deiDecomposed.Components); i++ {
 				for j := 0; j < len(depEvent.Event.AssociatedCost.Decomposed.Components); j++ {
 					if deiDecomposed.Components[i].Name == depEvent.Event.AssociatedCost.Decomposed.Components[j].Name {
-						found = true
+						found = j
 						break
 					}
 				}
 			}
-			if !found {
-				DependenciesMet++
+			if found != -1 {
+				return errors.New("dependent event has a cost value but type is HasNot for cost dependency")
+			}
+
+			// check if the dependent event has a zero cost value
+			if deiDecomposed.Components[found].Cost.SingleNumber != nil {
+				result, err := SimulateIndependentSingleNumer(deiDecomposed.Components[found].Cost.SingleNumber, depEvent.Event.Timeframe)
+				if err != nil {
+					return err
+				}
+
+				if *result <= 0 {
+					DependenciesMet++
+				} else {
+					DependenciesMissed++
+				}
+				break
+			} else if deiDecomposed.Components[found].Cost.Range != nil {
+				result, resultSD, err := simulateRange(deiDecomposed.Components[found].Cost.Range, depEvent.Event.Timeframe)
+				if err != nil {
+					return err
+				}
+
+				if result+resultSD <= 0 {
+					DependenciesMet++
+				} else {
+					DependenciesMissed++
+				}
+
 			} else {
-				DependenciesMissed++
+				return errors.New("dependent event does not have a cost value or range but type is HasNot for cost dependency")
 			}
 
 			break
@@ -1347,21 +1488,50 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			}
 
 			// check if the dependent event has a impact value
-			found := false
+			found := -1
 
 			for i := 0; i < len(deiDecomposed.Components); i++ {
 				for j := 0; j < len(depEvent.Event.AssociatedImpact.Decomposed.Components); j++ {
 					if deiDecomposed.Components[i].Name == depEvent.Event.AssociatedImpact.Decomposed.Components[j].Name {
-						found = true
+						found = j
 						break
 					}
 				}
 			}
 
-			if found {
-				DependenciesMet++
+			if found == -1 {
+				return errors.New("dependent event does not have an impact value but type is Has for impact dependency")
+			}
+
+			if depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact != nil {
+				if depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.SingleNumber != nil {
+					result, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.SingleNumber, depEvent.Event.Timeframe)
+					if err != nil {
+						return err
+					}
+
+					if *result > 0 {
+						DependenciesMet++
+					} else {
+						DependenciesMissed++
+					}
+				} else if depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.Range != nil {
+					result, resultSD, err := simulateRange(depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.Range, depEvent.Event.Timeframe)
+					if err != nil {
+						return err
+					}
+
+					if result+resultSD > 0 {
+						DependenciesMet++
+					} else {
+						DependenciesMissed++
+					}
+					break
+				} else {
+					return errors.New("dependent event does not have an impact value but type is Has for impact dependency")
+				}
 			} else {
-				DependenciesMissed++
+				return errors.New("dependent event does not have an impact value but type is Has for impact dependency")
 			}
 
 			break
@@ -1375,21 +1545,49 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			}
 
 			// check if the dependent event has a impact value
-			found := false
+			found := -1
 
 			for i := 0; i < len(deiDecomposed.Components); i++ {
 				for j := 0; j < len(depEvent.Event.AssociatedImpact.Decomposed.Components); j++ {
 					if deiDecomposed.Components[i].Name == depEvent.Event.AssociatedImpact.Decomposed.Components[j].Name {
-						found = true
+						found = j
 						break
 					}
 				}
 			}
 
-			if !found {
-				DependenciesMet++
+			if found == -1 {
+				return errors.New("dependent event does not have an impact value but type is HasNot for impact dependency")
+			}
+
+			if depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact != nil {
+				if depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.SingleNumber != nil {
+					result, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.SingleNumber, depEvent.Event.Timeframe)
+					if err != nil {
+						return err
+					}
+
+					if *result <= 0 {
+						DependenciesMet++
+					} else {
+						DependenciesMissed++
+					}
+				} else if depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.Range != nil {
+					result, resultSD, err := simulateRange(depEvent.Event.AssociatedImpact.Decomposed.Components[found].Impact.Range, depEvent.Event.Timeframe)
+					if err != nil {
+						return err
+					}
+
+					if result+resultSD <= 0 {
+						DependenciesMet++
+					} else {
+						DependenciesMissed++
+					}
+				} else {
+					return errors.New("dependent event does not have an impact value but type is HasNot for impact dependency")
+				}
 			} else {
-				DependenciesMissed++
+				return errors.New("dependent event does not have an impact value but type is HasNot for impact dependency")
 			}
 
 			break
@@ -2237,21 +2435,52 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			}
 
 			// check if the dependent event has a probability value
-			found := false
+			found := -1
 
 			for i := 0; i < len(deiDecomposed.Components); i++ {
 				for j := 0; j < len(depEvent.Event.AssociatedProbability.Decomposed.Components); j++ {
 					if deiDecomposed.Components[i].Name == depEvent.Event.AssociatedProbability.Decomposed.Components[j].Name {
-						found = true
+						found = j
 						break
 					}
 				}
 			}
 
-			if found {
-				DependenciesMet++
+			if found == -1 {
+				return errors.New("dependent event does not have a probability value but type is Has for probability dependency")
+			}
+
+			if depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability != nil {
+				if depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.SingleNumber != nil {
+					result, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.SingleNumber, depEvent.Event.Timeframe)
+					if err != nil {
+						return err
+					}
+
+					if *result > 0 {
+						DependenciesMet++
+					} else {
+						DependenciesMissed++
+					}
+
+				} else if depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.Range != nil {
+					result, resultSD, err := simulateRange(depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.Range, depEvent.Event.Timeframe)
+
+					if err != nil {
+						return err
+					}
+
+					if result+resultSD > 0 {
+						DependenciesMet++
+					} else {
+						DependenciesMissed++
+					}
+
+				} else {
+					return errors.New("dependent event does not have a probability value but type is Has for probability dependency")
+				}
 			} else {
-				DependenciesMissed++
+				return errors.New("dependent event does not have a probability value but type is Has for probability dependency")
 			}
 
 			break
@@ -2262,21 +2491,52 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			}
 
 			// check if the dependent event has a probability value
-			found := false
+			found := -1
 
 			for i := 0; i < len(deiDecomposed.Components); i++ {
 				for j := 0; j < len(depEvent.Event.AssociatedProbability.Decomposed.Components); j++ {
 					if deiDecomposed.Components[i].Name == depEvent.Event.AssociatedProbability.Decomposed.Components[j].Name {
-						found = true
+						found = j
 						break
 					}
 				}
 			}
 
-			if !found {
-				DependenciesMet++
+			if found == -1 {
+				return errors.New("dependent event does not have a probability value but type is HasNot for probability dependency")
+			}
+
+			if depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability != nil {
+				if depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.SingleNumber != nil {
+					result, err := SimulateIndependentSingleNumer(depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.SingleNumber, depEvent.Event.Timeframe)
+					if err != nil {
+						return err
+					}
+
+					if *result <= 0 {
+						DependenciesMet++
+					} else {
+						DependenciesMissed++
+					}
+
+				} else if depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.Range != nil {
+					result, resultSD, err := simulateRange(depEvent.Event.AssociatedProbability.Decomposed.Components[found].Probability.Range, depEvent.Event.Timeframe)
+
+					if err != nil {
+						return err
+					}
+
+					if result+resultSD <= 0 {
+						DependenciesMet++
+					} else {
+						DependenciesMissed++
+					}
+
+				} else {
+					return errors.New("dependent event does not have a probability value but type is HasNot for probability dependency")
+				}
 			} else {
-				DependenciesMissed++
+				return errors.New("dependent event does not have a probability value but type is HasNot for probability dependency")
 			}
 
 			break
