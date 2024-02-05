@@ -2427,7 +2427,6 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			} else {
 				return nil, errors.New("dependent event does not have a probability value or range but type is Out for probability dependency")
 			}
-			break
 		case types.Has:
 			// check if the event decomposition has a component
 			if deiDecomposed.Components == nil {
@@ -2483,9 +2482,7 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				return nil, errors.New("dependent event does not have a probability value but type is Has for probability dependency")
 			}
 
-			break
 		case types.HasNot:
-			// check if the event decomposition does not have a component
 			if deiDecomposed.Components == nil {
 				return nil, errors.New("probability dependency decomposed components is nil but type is HasNot")
 			}
@@ -2539,7 +2536,6 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				return nil, errors.New("dependent event does not have a probability value but type is HasNot for probability dependency")
 			}
 
-			break
 		case types.EQ:
 			// check if the event value is equal to the dependency value
 			if deiSingle == nil {
@@ -2613,7 +2609,6 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				DependenciesMissed++
 			}
 
-			break
 		case types.NEQ:
 			// check if the event value is not equal to the dependency value
 			if deiSingle == nil {
@@ -2686,7 +2681,6 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				DependenciesMissed++
 			}
 
-			break
 		case types.LT:
 			// check if the event value is less than the dependency value
 			if deiSingle == nil {
@@ -2761,7 +2755,6 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				DependenciesMissed++
 			}
 
-			break
 		case types.GT:
 			// check if the event value is greater than the dependency value
 			if deiSingle == nil {
@@ -2835,7 +2828,6 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 				DependenciesMissed++
 			}
 
-			break
 		case types.LTE:
 			// check if the event value is less than or equal to the dependency value
 			if deiSingle == nil {
@@ -2908,8 +2900,6 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			} else {
 				DependenciesMissed++
 			}
-
-			break
 		case types.GTE:
 			// check if the event value is greater than or equal to the dependency value
 			if deiSingle == nil {

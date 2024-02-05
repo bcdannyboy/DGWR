@@ -529,12 +529,28 @@ func SimulateIndependentEvent(event *utils.FilteredEvent) (*types.SimulationResu
 	if event.Event.AssociatedMitigation != nil {
 		if event.Event.AssociatedMitigation.Probability != nil {
 			if event.Event.AssociatedMitigation.Probability.SingleNumber != nil {
-
+				probability, err := SimulateIndependentSingleNumer(event.Event.AssociatedMitigation.Probability.SingleNumber, event.Event.Timeframe)
+				if err != nil {
+					return nil, err
+				}
+				results.AssociatedMitigation.Probability = *probability
 			}
 			if event.Event.AssociatedMitigation.Probability.Range != nil {
+				probability, err := SimulateIndependentRange(event.Event.AssociatedMitigation.Probability.Range, event.Event.Timeframe)
+				if err != nil {
+					return nil, err
+				}
 
+				results.AssociatedMitigation.Probability = *probability
 			}
 			if event.Event.AssociatedMitigation.Probability.Decomposed != nil {
+				probability, probabilityStdDev, _, _, _, _, err := SimulateIndependentDecomposed(event.Event.AssociatedMitigation.Probability.Decomposed)
+				if err != nil {
+					return nil, err
+				}
+
+				results.AssociatedMitigation.Probability = probability
+				results.AssociatedMitigation.ProbabilityStandardDeviation = probabilityStdDev
 
 			}
 		}

@@ -3,7 +3,7 @@ package types
 // Data Exposure Risks are the risks associated with the exposure of sensitive data.
 type Risk struct {
 	ID             uint64             `json:"id"`
-	Name           string             `json:"name`
+	Name           string             `json:"name"`
 	RiskType       string             `json:"risk_type"`
 	CIACategory    string             `json:"cia_category"`
 	Description    string             `json:"description,omitempty"`
