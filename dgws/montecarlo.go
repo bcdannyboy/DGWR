@@ -1,6 +1,7 @@
 package dgws
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/bcdannyboy/montecargo/dgws/simulator"
@@ -15,7 +16,7 @@ type MonteCarlo struct {
 	Mitigations []*types.Mitigation `json:"mitigations"`
 }
 
-func (m *MonteCarlo) Simulate() {
+func (m *MonteCarlo) Simulate() ([]*types.SimulationResults, error) {
 	fmt.Printf("Simulating %d iterations with %d events\n", m.Iterations, len(m.Events))
 
 	// 1. filter out dependent and independent events
@@ -24,8 +25,7 @@ func (m *MonteCarlo) Simulate() {
 		fmt.Printf("Found %d bad events\n", len(badEvents))
 	}
 	if len(filteredEvents) == 0 {
-		fmt.Println("No events to simulate")
-		return
+		return nil, errors.New("No events to simulate")
 	}
 
 	IndependentEvents := []*utils.FilteredEvent{}
@@ -41,8 +41,7 @@ func (m *MonteCarlo) Simulate() {
 	// 2. simulate all the indepdendent events seperately and store the results
 	IndependentResults, err := SimulateIndependentevents(IndependentEvents, m.Iterations)
 	if err != nil {
-		fmt.Println("Error simulating independent events")
-		return
+		return nil, fmt.Errorf("Error simulating independent events: %s", err)
 	}
 
 	// 3. simulate all the depedenent events seperately and store the results
@@ -51,8 +50,7 @@ func (m *MonteCarlo) Simulate() {
 		for _, event := range DependentEvents {
 			DependentResult, err := simulator.SimulateDependentEvent(event.Event, filteredEvents, m.Risks, m.Mitigations, IndependentResults)
 			if err != nil {
-				fmt.Printf("Error simulating dependent event %d\n", event.ID)
-				return
+				return nil, fmt.Errorf("Error simulating dependent event %d: %s", event.ID, err)
 			}
 
 			DependentResults = append(DependentResults, DependentResult)
@@ -63,4 +61,5 @@ func (m *MonteCarlo) Simulate() {
 	AllResults := append(IndependentResults, DependentResults...)
 
 	// 5. return the results
+	return AllResults, nil
 }
