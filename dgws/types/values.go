@@ -23,25 +23,20 @@ type Range struct {
 	Maximum Maximum
 }
 
+type DecomposedItem struct {
+	SingleNumber *SingleNumber `json:"single_number,omitempty"`
+	Range        *Range        `json:"range,omitempty"`
+	Decomposed   *Decomposed   `json:"decomposed,omitempty"`
+}
+
 type DecomposedComponent struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Probability *struct {
-		SingleNumber *SingleNumber `json:"single_number,omitempty"`
-		Range        *Range        `json:"range,omitempty"`
-		Decomposed   *Decomposed   `json:"decomposed,omitempty"`
-	} `json:"probability,omitempty"`
-	Impact *struct {
-		SingleNumber *SingleNumber `json:"single_number,omitempty"`
-		Range        *Range        `json:"range,omitempty"`
-		Decomposed   *Decomposed   `json:"decomposed,omitempty"`
-	} `json:"impact,omitempty"`
-	Cost *struct {
-		SingleNumber *SingleNumber `json:"single_number,omitempty"`
-		Range        *Range        `json:"range,omitempty"`
-		Decomposed   *Decomposed   `json:"decomposed,omitempty"`
-	} `json:"cost,omitempty"`
-	TimeFrame uint64
+	ComponentID uint64          `json:"component_id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Probability *DecomposedItem `json:"probability,omitempty"`
+	Impact      *DecomposedItem `json:"impact,omitempty"`
+	Cost        *DecomposedItem `json:"cost,omitempty"`
+	TimeFrame   uint64
 }
 
 type Decomposed struct {

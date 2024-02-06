@@ -35,12 +35,9 @@ func main() {
 			Decomposed: &types.Decomposed{
 				Components: []*types.DecomposedComponent{
 					{
-						Name: "Phishing Success",
-						Probability: &struct {
-							SingleNumber *types.SingleNumber `json:"single_number,omitempty"`
-							Range        *types.Range        `json:"range,omitempty"`
-							Decomposed   *types.Decomposed   `json:"decomposed,omitempty"`
-						}{
+						ComponentID: 1,
+						Name:        "Phishing Success",
+						Probability: &types.DecomposedItem{
 							SingleNumber: &types.SingleNumber{
 								Value:      0.2,
 								Confidence: utils.Float64toPointer(0.7),
@@ -48,12 +45,9 @@ func main() {
 						},
 					},
 					{
-						Name: "External Exploit",
-						Probability: &struct {
-							SingleNumber *types.SingleNumber `json:"single_number,omitempty"`
-							Range        *types.Range        `json:"range,omitempty"`
-							Decomposed   *types.Decomposed   `json:"decomposed,omitempty"`
-						}{
+						ComponentID: 2,
+						Name:        "External Exploit",
+						Probability: &types.DecomposedItem{
 							SingleNumber: &types.SingleNumber{
 								Value:      0.1,
 								Confidence: utils.Float64toPointer(0.9),
@@ -134,18 +128,17 @@ func main() {
 		Mitigates: []uint64{DataLeakRisk.ID},
 	}
 
+	// Forensic Analysis (unchanged from your initial code)
 	ForensicAnalysis := &types.Event{
 		ID:   5,
 		Name: "Forensic Analysis",
 		AssociatedProbability: &types.Probability{
-			// Assuming forensic analysis is certain if conditions are met
 			SingleNumber: &types.SingleNumber{
 				Value:      1.0,
 				Confidence: utils.Float64toPointer(1.0),
 			},
 		},
 		AssociatedCost: &types.Cost{
-			// Assuming a fixed cost for forensic analysis
 			SingleNumber: &types.SingleNumber{
 				Value:      15000, // Cost of conducting forensic analysis
 				Confidence: utils.Float64toPointer(0.9),
@@ -153,7 +146,6 @@ func main() {
 		},
 		DependsOnEvent: []*types.EventDependency{
 			{
-				// This dependency is on the occurrence of a data leak
 				Name:             "Data Leak",
 				Type:             types.Happens,
 				DependentEventID: DataLeakRisk.ID,
@@ -161,7 +153,6 @@ func main() {
 		},
 		DependsOnImpact: []*types.ImpactDependency{
 			{
-				// Trigger forensic analysis if the impact of the data leak is within a certain range
 				Name:             "High Impact Data Leak",
 				Type:             types.GTE, // Greater than or equal to
 				DependentEventID: utils.Uint64toPointer(DataLeakRisk.ID),
@@ -172,10 +163,43 @@ func main() {
 		},
 	}
 
+	// New Event: APT Detection
+	APTDetection := &types.Event{
+		ID:   6,
+		Name: "APT Detection",
+		AssociatedProbability: &types.Probability{
+			Decomposed: &types.Decomposed{
+				Components: []*types.DecomposedComponent{
+					{
+						ComponentID: 1, // Matching the Phishing Success component
+						Name:        "Effective Phishing Detection",
+						Probability: &types.DecomposedItem{
+							SingleNumber: &types.SingleNumber{
+								Value:      0.5, // Adjusted probability for detection
+								Confidence: utils.Float64toPointer(0.8),
+							},
+						},
+					},
+					{
+						ComponentID: 2, // Matching the External Exploit component
+						Name:        "Effective Exploit Detection",
+						Probability: &types.DecomposedItem{
+							SingleNumber: &types.SingleNumber{
+								Value:      0.4, // Adjusted probability for detection
+								Confidence: utils.Float64toPointer(0.85),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	Events := []*types.Event{
 		PhishingAttack,
 		SystemCompromise,
 		ForensicAnalysis,
+		APTDetection, // Include the new event
 	}
 
 	Risks := []*types.Risk{

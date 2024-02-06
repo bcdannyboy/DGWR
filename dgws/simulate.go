@@ -382,7 +382,7 @@ func SimulateDependentEvents(Events []*utils.FilteredEvent, iterations int) ([]*
 				}
 
 				// if all dependencies are met, simulate the event and store the results
-
+				_ = curEvent
 				// probability
 
 				// impact

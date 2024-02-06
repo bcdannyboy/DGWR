@@ -44,6 +44,7 @@ func (m *MonteCarlo) Simulate() ([]*types.SimulationResults, error) {
 	}
 
 	// 3. simulate all the dependent events and store the results
+	_ = IndependentResults
 
 	// 4. combine the results of the independent and dependent events
 
