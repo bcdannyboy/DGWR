@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/bcdannyboy/montecargo/dgws/simulator"
 	"github.com/bcdannyboy/montecargo/dgws/types"
 	"github.com/bcdannyboy/montecargo/dgws/utils"
 )
@@ -45,21 +44,9 @@ func (m *MonteCarlo) Simulate() ([]*types.SimulationResults, error) {
 	}
 
 	// 3. simulate all the depedenent events seperately and store the results
-	DependentResults := []*types.SimulationResults{}
-	for i := 0; i < m.Iterations; i++ {
-		for _, event := range DependentEvents {
-			DependentResult, err := simulator.SimulateDependentEvent(event.Event, filteredEvents, m.Risks, m.Mitigations, IndependentResults)
-			if err != nil {
-				return nil, fmt.Errorf("Error simulating dependent event %d: %s", event.ID, err)
-			}
-
-			DependentResults = append(DependentResults, DependentResult)
-		}
-	}
 
 	// 4. combine the results of the independent and dependent events
-	AllResults := append(IndependentResults, DependentResults...)
 
 	// 5. return the results
-	return AllResults, nil
+	return nil, nil
 }
