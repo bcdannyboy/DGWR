@@ -37,13 +37,13 @@ func (m *MonteCarlo) Simulate() ([]*types.SimulationResults, error) {
 		}
 	}
 
-	// 2. simulate all the indepdendent events seperately and store the results
-	IndependentResults, err := SimulateIndependentevents(IndependentEvents, m.Iterations)
+	// 2. simulate all the independent events and store the results
+	IndependentResults, err := SimulateIndependentEvents(IndependentEvents, m.Iterations)
 	if err != nil {
 		return nil, fmt.Errorf("Error simulating independent events: %s", err)
 	}
 
-	// 3. simulate all the depedenent events seperately and store the results
+	// 3. simulate all the dependent events and store the results
 
 	// 4. combine the results of the independent and dependent events
 

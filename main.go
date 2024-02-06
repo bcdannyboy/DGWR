@@ -134,9 +134,48 @@ func main() {
 		Mitigates: []uint64{DataLeakRisk.ID},
 	}
 
+	ForensicAnalysis := &types.Event{
+		ID:   5,
+		Name: "Forensic Analysis",
+		AssociatedProbability: &types.Probability{
+			// Assuming forensic analysis is certain if conditions are met
+			SingleNumber: &types.SingleNumber{
+				Value:      1.0,
+				Confidence: utils.Float64toPointer(1.0),
+			},
+		},
+		AssociatedCost: &types.Cost{
+			// Assuming a fixed cost for forensic analysis
+			SingleNumber: &types.SingleNumber{
+				Value:      15000, // Cost of conducting forensic analysis
+				Confidence: utils.Float64toPointer(0.9),
+			},
+		},
+		DependsOnEvent: []*types.EventDependency{
+			{
+				// This dependency is on the occurrence of a data leak
+				Name:             "Data Leak",
+				Type:             types.Happens,
+				DependentEventID: DataLeakRisk.ID,
+			},
+		},
+		DependsOnImpact: []*types.ImpactDependency{
+			{
+				// Trigger forensic analysis if the impact of the data leak is within a certain range
+				Name:             "High Impact Data Leak",
+				Type:             types.GTE, // Greater than or equal to
+				DependentEventID: utils.Uint64toPointer(DataLeakRisk.ID),
+				SingleValue: &types.SingleNumber{
+					Value: 10000, // Trigger if impact is $10,000 or more
+				},
+			},
+		},
+	}
+
 	Events := []*types.Event{
 		PhishingAttack,
 		SystemCompromise,
+		ForensicAnalysis,
 	}
 
 	Risks := []*types.Risk{

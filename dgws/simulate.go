@@ -1,12 +1,14 @@
 package dgws
 
 import (
+	"fmt"
+
 	"github.com/bcdannyboy/montecargo/dgws/simulator"
 	"github.com/bcdannyboy/montecargo/dgws/types"
 	"github.com/bcdannyboy/montecargo/dgws/utils"
 )
 
-func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([]*types.SimulationResults, error) {
+func SimulateIndependentEvents(Events []*utils.FilteredEvent, iterations int) ([]*types.SimulationResults, error) {
 	SimulationResults := []*types.SimulationResults{}
 
 	for _, event := range Events {
@@ -343,6 +345,51 @@ func SimulateIndependentevents(Events []*utils.FilteredEvent, iterations int) ([
 				}
 			}
 
+		}
+	}
+
+	return SimulationResults, nil
+}
+
+func SimulateDependentEvents(Events []*utils.FilteredEvent, iterations int) ([]*types.SimulationResults, error) {
+	SimulationResults := []*types.SimulationResults{}
+
+	for _, event := range Events {
+		if !event.Independent { // we're only interested in dependent events
+
+			expectedValue := event.DependencyValue
+			expectedRange := event.DependencyRange
+			expectedDecomp := event.DependencyDecomp
+			dType := event.DependencyType
+			dID := event.DependentEventID
+			curEvent := event.Event
+
+			dEvent, err := utils.FindEventByID(*dID, Events)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find dependent event %v: %s", *dID, err.Error())
+			}
+
+			for i := 0; i < iterations; i++ {
+				// check for dependencies until all are met or at least one is missed
+				depMet, err := simulator.DependencyCheck(dEvent, dType, Events, expectedValue, expectedRange, expectedDecomp)
+				if err != nil {
+					return nil, fmt.Errorf("failed to check dependencies for event %v: %s", event.ID, err.Error())
+				}
+
+				// if a dependency is missed, skip the iteration
+				if !depMet {
+					continue
+				}
+
+				// if all dependencies are met, simulate the event and store the results
+
+				// probability
+
+				// impact
+
+				// cost
+
+			}
 		}
 	}
 

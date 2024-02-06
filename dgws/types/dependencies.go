@@ -67,7 +67,7 @@ type RiskDependency struct {
 type MitigationDependency struct {
 	Name                        string  `json:"name,omitempty"`
 	Description                 string  `json:"description,omitempty"`
-	Type                        uint64  `json:"type"`  // ==, !=, <, >, <=, >=, in, out, has, has not, exists, does not exist
+	Type                        uint64  `json:"type"`  // exists, does not exist
 	DependentMitigationOrRiskID *uint64 `json:"value"` // hash of the mitigation or risk that this mitigation depends on
 	DependentEventID            *uint64 `json:"dependent_event_id,omitempty"`
 }
