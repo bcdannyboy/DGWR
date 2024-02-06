@@ -28,6 +28,44 @@ func DependencyCheck(
 			return false, fmt.Errorf("dependent event %d not found", DoE.DependentEventID)
 		}
 
+		if DoEvent == nil || DoEvent.Event == nil {
+			return false, fmt.Errorf("dependent event %d is nil", DoE.DependentEventID)
+		}
+
+		// recursive dependency check
+		if !DoEvent.Independent {
+			dID := DoEvent.DependentEventID
+			dValue := DoEvent.DependencyValue
+			dRange := DoEvent.DependencyRange
+			dDecomp := DoEvent.DependencyDecomp
+
+			if dID == nil {
+				return false, fmt.Errorf("dependent event %d has no dependency event", DoEvent.Event.ID)
+			}
+
+			if dValue == nil && dRange == nil && dDecomp == nil {
+				return false, fmt.Errorf("dependent event %d has no dependency value, range, or decomposed", DoEvent.Event.ID)
+			}
+
+			dEvent, err := utils.FindEventByID(*dID, Events)
+			if err != nil {
+				return false, fmt.Errorf("dependent event %d not found", *dID)
+			}
+
+			if dEvent == nil || dEvent.Event == nil {
+				return false, fmt.Errorf("dependent event %d is nil", *dID)
+			}
+
+			hitormiss, err := DependencyCheck(dEvent, DoEvent.DependencyType, Events, dValue, dRange, dDecomp)
+			if err != nil {
+				return false, fmt.Errorf("error checking dependency for dependent event %d: %s", DoEvent.Event.ID, err.Error())
+			}
+
+			if !hitormiss {
+				return false, nil // missed dependency
+			}
+		}
+
 		// Process Depends on Event
 		switch DType {
 		case types.Happens:
@@ -254,27 +292,81 @@ func DependencyCheck(
 	}
 
 	for _, DoP := range DepEvent.Event.DependsOnProbability {
+		DoPEvent, err := utils.FindEventByID(*DoP.DependentEventID, Events)
+		if err != nil {
+			return false, fmt.Errorf("dependent event %d not found", *DoP.DependentEventID)
+		}
+
+		if DoPEvent == nil || DoPEvent.Event == nil {
+			return false, fmt.Errorf("dependent event %d is nil", *DoP.DependentEventID)
+		}
+
+		// recursive dependency check
+		if !DoPEvent.Independent {
+			dID := DoPEvent.DependentEventID
+			dValue := DoPEvent.DependencyValue
+			dRange := DoPEvent.DependencyRange
+			dDecomp := DoPEvent.DependencyDecomp
+
+			if dID == nil {
+				return false, fmt.Errorf("dependent event %d has no dependency event", DoPEvent.Event.ID)
+			}
+
+			if dValue == nil && dRange == nil && dDecomp == nil {
+				return false, fmt.Errorf("dependent event %d has no dependency value, range, or decomposed", DoPEvent.Event.ID)
+			}
+
+			dEvent, err := utils.FindEventByID(*dID, Events)
+			if err != nil {
+				return false, fmt.Errorf("dependent event %d not found", *dID)
+
+			}
+
+			if dEvent == nil || dEvent.Event == nil {
+				return false, fmt.Errorf("dependent event %d is nil", *dID)
+			}
+
+			hitormiss, err := DependencyCheck(dEvent, DoPEvent.DependencyType, Events, dValue, dRange, dDecomp)
+			if err != nil {
+				return false, fmt.Errorf("error checking dependency for dependent event %d: %s", DoPEvent.Event.ID, err.Error())
+			}
+
+			if !hitormiss {
+				return false, nil // missed dependency
+			}
+		}
+
 		// Process Depends on Probability
 		switch DType {
 		case types.Has:
+			// has means the probability is dependent on a non-zero specific component of the decomposed attribute of the dependent event
 			break
 		case types.HasNot:
+			// has not means the probability is dependent on a zero specific component of the decomposed attribute of the dependent event
 			break
 		case types.In:
+			// in means the probability is in a specific range
 			break
 		case types.Out:
+			// out means the probability is outside a specific range
 			break
 		case types.EQ:
+			// eq means the probability is equal to a specific value
 			break
 		case types.NEQ:
+			// neq means the probability is not equal to a specific value
 			break
 		case types.LT:
+			// lt means the probability is less than a specific value
 			break
 		case types.GT:
+			// gt means the probability is greater than a specific value
 			break
 		case types.LTE:
+			// lte means the probability is less than or equal to a specific value
 			break
 		case types.GTE:
+			// gte means the probability is greater than or equal to a specific value
 			break
 		default:
 			return false, fmt.Errorf("invalid dependency type")
@@ -283,27 +375,81 @@ func DependencyCheck(
 
 	for _, DoI := range DepEvent.Event.DependsOnImpact {
 		// Process Depends on Impact
+		DoIEvent, err := utils.FindEventByID(*DoI.DependentEventID, Events)
+		if err != nil {
+			return false, fmt.Errorf("dependent event %d not found", *DoI.DependentEventID)
+		}
+
+		if DoIEvent == nil || DoIEvent.Event == nil {
+			return false, fmt.Errorf("dependent event %d is nil", *DoI.DependentEventID)
+		}
+
+		// recursive dependency check
+		if !DoIEvent.Independent {
+			dID := DoIEvent.DependentEventID
+			dValue := DoIEvent.DependencyValue
+			dRange := DoIEvent.DependencyRange
+			dDecomp := DoIEvent.DependencyDecomp
+
+			if dID == nil {
+				return false, fmt.Errorf("dependent event %d has no dependency event", DoIEvent.Event.ID)
+			}
+
+			if dValue == nil && dRange == nil && dDecomp == nil {
+				return false, fmt.Errorf("dependent event %d has no dependency value, range, or decomposed", DoIEvent.Event.ID)
+			}
+
+			dEvent, err := utils.FindEventByID(*dID, Events)
+			if err != nil {
+				return false, fmt.Errorf("dependent event %d not found", *dID)
+			}
+
+			if dEvent == nil || dEvent.Event == nil {
+				return false, fmt.Errorf("dependent event %d is nil", *dID)
+			}
+
+			hitormiss, err := DependencyCheck(dEvent, DoIEvent.DependencyType, Events, dValue, dRange, dDecomp)
+
+			if err != nil {
+				return false, fmt.Errorf("error checking dependency for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+			}
+
+			if !hitormiss {
+				return false, nil // missed dependency
+			}
+
+		}
 
 		switch DType {
 		case types.Has:
+			// has means the impact is dependent on a non-zero specific component of the decomposed attribute of the dependent event
 			break
 		case types.HasNot:
+			// has not means the impact is dependent on a zero specific component of the decomposed attribute of the dependent event
 			break
 		case types.In:
+			// in means the impact is in a specific range
 			break
 		case types.Out:
+			// out means the impact is outside a specific range
 			break
 		case types.EQ:
+			// eq means the impact is equal to a specific value
 			break
 		case types.NEQ:
+			// neq means the impact is not equal to a specific value
 			break
 		case types.LT:
+			// lt means the impact is less than a specific value
 			break
 		case types.GT:
+			// gt means the impact is greater than a specific value
 			break
 		case types.LTE:
+			// lte means the impact is less than or equal to a specific value
 			break
 		case types.GTE:
+			// gte means the impact is greater than or equal to a specific value
 			break
 		default:
 			return false, fmt.Errorf("invalid dependency type")
@@ -312,27 +458,79 @@ func DependencyCheck(
 
 	for _, DoC := range DepEvent.Event.DependsOnCost {
 		// Process Depends on Cost
+		DoCEvent, err := utils.FindEventByID(*DoC.DependentEventID, Events)
+		if err != nil {
+			return false, fmt.Errorf("dependent event %d not found", *DoC.DependentEventID)
+		}
+
+		if DoCEvent == nil || DoCEvent.Event == nil {
+			return false, fmt.Errorf("dependent event %d is nil", *DoC.DependentEventID)
+		}
+
+		// recursive dependency check
+		if !DoCEvent.Independent {
+			dID := DoCEvent.DependentEventID
+			dValue := DoCEvent.DependencyValue
+			dRange := DoCEvent.DependencyRange
+			dDecomp := DoCEvent.DependencyDecomp
+
+			if dID == nil {
+				return false, fmt.Errorf("dependent event %d has no dependency event", DoCEvent.Event.ID)
+			}
+
+			if dValue == nil && dRange == nil && dDecomp == nil {
+				return false, fmt.Errorf("dependent event %d has no dependency value, range, or decomposed", DoCEvent.Event.ID)
+			}
+
+			dEvent, err := utils.FindEventByID(*dID, Events)
+			if err != nil {
+				return false, fmt.Errorf("dependent event %d not found", *dID)
+			}
+
+			if dEvent == nil || dEvent.Event == nil {
+				return false, fmt.Errorf("dependent event %d is nil", *dID)
+			}
+
+			hitormiss, err := DependencyCheck(dEvent, DoCEvent.DependencyType, Events, dValue, dRange, dDecomp)
+			if err != nil {
+				return false, fmt.Errorf("error checking dependency for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+			}
+
+			if !hitormiss {
+				return false, nil // missed dependency
+			}
+		}
 
 		switch DType {
 		case types.Has:
+			// has means the cost is dependent on a non-zero specific component of the decomposed attribute of the dependent event
 			break
 		case types.HasNot:
+			// has not means the cost is dependent on a zero specific component of the decomposed attribute of the dependent event
 			break
 		case types.In:
+			// in means the cost is in a specific range
 			break
 		case types.Out:
+			// out means the cost is outside a specific range
 			break
 		case types.EQ:
+			// eq means the cost is equal to a specific value
 			break
 		case types.NEQ:
+			// neq means the cost is not equal to a specific value
 			break
 		case types.LT:
+			// lt means the cost is less than a specific value
 			break
 		case types.GT:
+			// gt means the cost is greater than a specific value
 			break
 		case types.LTE:
+			// lte means the cost is less than or equal to a specific value
 			break
 		case types.GTE:
+			// gte means the cost is greater than or equal to a specific value
 			break
 		default:
 			return false, fmt.Errorf("invalid dependency type")
@@ -341,10 +539,13 @@ func DependencyCheck(
 
 	for _, DoR := range DepEvent.Event.DependsOnRisk {
 		// Process Depends on Risk
+
 		switch DType {
 		case types.Exists:
+			// exists means the risk has a non-zero probability and impact
 			break
 		case types.DoesNotExist:
+			// does not exist means the risk has a zero probability and impact
 			break
 		default:
 			return false, fmt.Errorf("invalid dependency type")
@@ -355,8 +556,10 @@ func DependencyCheck(
 		// Process Depends on Mitigation
 		switch DType {
 		case types.Exists:
+			// exists means the mitigation has a non-zero probability, impact, and cost
 			break
 		case types.DoesNotExist:
+			// does not exist means the mitigation has a zero probability, impact, and cost
 			break
 		default:
 			return false, fmt.Errorf("invalid dependency type")
