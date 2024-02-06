@@ -4153,7 +4153,6 @@ func DependencyCheck(
 	}
 
 	for _, DoC := range DepEvent.Event.DependsOnCost {
-		// Process Depends on Cost
 		DoCEvent, err := utils.FindEventByID(*DoC.DependentEventID, Events)
 		if err != nil {
 			return false, fmt.Errorf("dependent event %d not found", *DoC.DependentEventID)
@@ -4181,6 +4180,7 @@ func DependencyCheck(
 			dEvent, err := utils.FindEventByID(*dID, Events)
 			if err != nil {
 				return false, fmt.Errorf("dependent event %d not found", *dID)
+
 			}
 
 			if dEvent == nil || dEvent.Event == nil {
@@ -4197,36 +4197,1886 @@ func DependencyCheck(
 			}
 		}
 
+		// Process Depends on Cost
 		switch DType {
 		case types.Has:
-			// has means the cost is dependent on a non-zero specific component of the decomposed attribute of the dependent event
+			// has means the Cost is dependent on a non-zero specific component of the decomposed attribute of the dependent event
+
+			if DoCEvent.Event.AssociatedCost == nil {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.Event.AssociatedCost.Decomposed == nil {
+				return false, fmt.Errorf("dependent event has no decomposed Cost to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.DependencyDecomp == nil {
+				return false, fmt.Errorf("dependent event has no decomposed dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			found := false
+			for _, component := range DoCEvent.Event.AssociatedCost.Decomposed.Components {
+				for _, expectedComponent := range DoCEvent.DependencyDecomp.Components {
+					if component.ComponentID == expectedComponent.ComponentID {
+						found = true
+						if component.Cost != nil {
+							if component.Cost.SingleNumber != nil {
+								base, std, err := simulateSingleNumber(component.Cost.SingleNumber, DoCEvent.Event.Timeframe)
+								if err != nil {
+									return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+								}
+
+								min := base - std
+								if min <= 0 {
+									return false, nil // missed dependency
+								}
+							} else if component.Cost.Range != nil {
+								base, std, err := simulateRange(component.Cost.Range, DoCEvent.Event.Timeframe)
+								if err != nil {
+									return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+								}
+
+								min := base - std
+								if min <= 0 {
+									return false, nil // missed dependency
+								}
+							} else if component.Cost.Decomposed != nil {
+								base, std, err := simulateDecomposedByAttribute(component.Cost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+								if err != nil {
+									return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+								}
+
+								min := base - std
+								if min <= 0 {
+									return false, nil // missed dependency
+								}
+							} else {
+								return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+							}
+						} else {
+							return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+						}
+					}
+				}
+			}
+
+			if !found {
+				return false, fmt.Errorf("dependent event has no decomposed dependency to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.HasNot:
-			// has not means the cost is dependent on a zero specific component of the decomposed attribute of the dependent event
+			// has not means the Cost is dependent on a zero specific component of the decomposed attribute of the dependent event
+
+			if DoCEvent.Event.AssociatedCost == nil {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.Event.AssociatedCost.Decomposed == nil {
+				return false, fmt.Errorf("dependent event has no decomposed Cost to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.DependencyDecomp == nil {
+				return false, fmt.Errorf("dependent event has no decomposed dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			found := false
+			for _, component := range DoCEvent.Event.AssociatedCost.Decomposed.Components {
+				for _, expectedComponent := range DoCEvent.DependencyDecomp.Components {
+					if component.ComponentID == expectedComponent.ComponentID {
+						found = true
+						if component.Cost != nil {
+							if component.Cost.SingleNumber != nil {
+								base, std, err := simulateSingleNumber(component.Cost.SingleNumber, DoCEvent.Event.Timeframe)
+								if err != nil {
+									return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+								}
+
+								if base-std > 0 {
+									return false, nil // missed dependency
+								}
+
+							} else if component.Cost.Range != nil {
+								base, std, err := simulateRange(component.Cost.Range, DoCEvent.Event.Timeframe)
+								if err != nil {
+									return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+								}
+
+								if base-std > 0 {
+									return false, nil // missed dependency
+								}
+
+							} else if component.Cost.Decomposed != nil {
+								base, std, err := simulateDecomposedByAttribute(component.Cost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+								if err != nil {
+									return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+								}
+
+								if base-std > 0 {
+									return false, nil // missed dependency
+
+								}
+
+							} else {
+								return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+							}
+
+						} else {
+							return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+						}
+
+					}
+
+				}
+
+			}
+
+			if !found {
+				return false, fmt.Errorf("dependent event has no decomposed dependency to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.In:
-			// in means the cost is in a specific range
+			// in means the Cost is in a specific range
+			if DoCEvent.Event.AssociatedCost == nil {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.DependencyRange == nil {
+				return false, fmt.Errorf("dependent event has no range dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.Event.AssociatedCost.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoCEvent.Event.AssociatedCost.SingleNumber, DoCEvent.Event.Timeframe)
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depRangeAbsoluteMin := DoCEvent.DependencyRange.Minimum.Value
+				if DoCEvent.DependencyRange.Minimum.StandardDeviation != nil {
+					depRangeAbsoluteMin = depRangeAbsoluteMin - *DoCEvent.DependencyRange.Minimum.StandardDeviation
+				}
+				if DoCEvent.DependencyRange.Minimum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin + (depRangeAbsoluteMin * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin - (depRangeAbsoluteMin * ci)
+					}
+				}
+
+				depRangeAbsoluteMax := DoCEvent.DependencyRange.Maximum.Value
+				if DoCEvent.DependencyRange.Maximum.StandardDeviation != nil {
+					depRangeAbsoluteMax = depRangeAbsoluteMax + *DoCEvent.DependencyRange.Maximum.StandardDeviation
+				}
+				if DoCEvent.DependencyRange.Maximum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax + (depRangeAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax - (depRangeAbsoluteMax * ci)
+					}
+				}
+
+				if !(min < depRangeAbsoluteMin && max > depRangeAbsoluteMax) { // partial in is ok
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Range != nil {
+				base, std, err := simulateRange(DoCEvent.Event.AssociatedCost.Range, DoCEvent.Event.Timeframe)
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depRangeAbsoluteMin := DoCEvent.DependencyRange.Minimum.Value
+				if DoCEvent.DependencyRange.Minimum.StandardDeviation != nil {
+					depRangeAbsoluteMin = depRangeAbsoluteMin - *DoCEvent.DependencyRange.Minimum.StandardDeviation
+				}
+
+				if DoCEvent.DependencyRange.Minimum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin + (depRangeAbsoluteMin * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin - (depRangeAbsoluteMin * ci)
+					}
+				}
+
+				depRangeAbsoluteMax := DoCEvent.DependencyRange.Maximum.Value
+				if DoCEvent.DependencyRange.Maximum.StandardDeviation != nil {
+					depRangeAbsoluteMax = depRangeAbsoluteMax + *DoCEvent.DependencyRange.Maximum.StandardDeviation
+				}
+
+				if DoCEvent.DependencyRange.Maximum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax + (depRangeAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax - (depRangeAbsoluteMax * ci)
+					}
+				}
+
+				if !(min < depRangeAbsoluteMin && max > depRangeAbsoluteMax) { // partial in is ok
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depRangeAbsoluteMin := DoCEvent.DependencyRange.Minimum.Value
+				if DoCEvent.DependencyRange.Minimum.StandardDeviation != nil {
+					depRangeAbsoluteMin = depRangeAbsoluteMin - *DoCEvent.DependencyRange.Minimum.StandardDeviation
+				}
+
+				if DoCEvent.DependencyRange.Minimum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin + (depRangeAbsoluteMin * ci)
+
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin - (depRangeAbsoluteMin * ci)
+					}
+				}
+
+				depRangeAbsoluteMax := DoCEvent.DependencyRange.Maximum.Value
+				if DoCEvent.DependencyRange.Maximum.StandardDeviation != nil {
+					depRangeAbsoluteMax = depRangeAbsoluteMax + *DoCEvent.DependencyRange.Maximum.StandardDeviation
+				}
+
+				if DoCEvent.DependencyRange.Maximum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax + (depRangeAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax - (depRangeAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min < depRangeAbsoluteMin && max > depRangeAbsoluteMax) { // partial in is ok
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
 			break
 		case types.Out:
-			// out means the cost is outside a specific range
+			// out means the Cost is outside a specific range
+			if DoCEvent.Event.AssociatedCost == nil {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.DependencyRange == nil {
+				return false, fmt.Errorf("dependent event has no range dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.Event.AssociatedCost.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoCEvent.Event.AssociatedCost.SingleNumber, DoCEvent.Event.Timeframe)
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depRangeAbsoluteMin := DoCEvent.DependencyRange.Minimum.Value
+				if DoCEvent.DependencyRange.Minimum.StandardDeviation != nil {
+					depRangeAbsoluteMin = depRangeAbsoluteMin - *DoCEvent.DependencyRange.Minimum.StandardDeviation
+				}
+
+				if DoCEvent.DependencyRange.Minimum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin + (depRangeAbsoluteMin * ci)
+
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin - (depRangeAbsoluteMin * ci)
+					}
+
+				}
+
+				depRangeAbsoluteMax := DoCEvent.DependencyRange.Maximum.Value
+				if DoCEvent.DependencyRange.Maximum.StandardDeviation != nil {
+					depRangeAbsoluteMax = depRangeAbsoluteMax + *DoCEvent.DependencyRange.Maximum.StandardDeviation
+				}
+
+				if DoCEvent.DependencyRange.Maximum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax + (depRangeAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax - (depRangeAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min > depRangeAbsoluteMin && max < depRangeAbsoluteMax) { // partial out is ok
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Range != nil {
+				base, std, err := simulateRange(DoCEvent.Event.AssociatedCost.Range, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depRangeAbsoluteMin := DoCEvent.DependencyRange.Minimum.Value
+				if DoCEvent.DependencyRange.Minimum.StandardDeviation != nil {
+					depRangeAbsoluteMin = depRangeAbsoluteMin - *DoCEvent.DependencyRange.Minimum.StandardDeviation
+				}
+
+				if DoCEvent.DependencyRange.Minimum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin + (depRangeAbsoluteMin * ci)
+
+					} else {
+
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin - (depRangeAbsoluteMin * ci)
+
+					}
+
+				}
+
+				depRangeAbsoluteMax := DoCEvent.DependencyRange.Maximum.Value
+				if DoCEvent.DependencyRange.Maximum.StandardDeviation != nil {
+
+					depRangeAbsoluteMax = depRangeAbsoluteMax + *DoCEvent.DependencyRange.Maximum.StandardDeviation
+				}
+
+				if DoCEvent.DependencyRange.Maximum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax + (depRangeAbsoluteMax * ci)
+					} else {
+
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax - (depRangeAbsoluteMax * ci)
+
+					}
+
+				}
+
+				if !(min > depRangeAbsoluteMin && max < depRangeAbsoluteMax) { // partial out is ok
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depRangeAbsoluteMin := DoCEvent.DependencyRange.Minimum.Value
+				if DoCEvent.DependencyRange.Minimum.StandardDeviation != nil {
+					depRangeAbsoluteMin = depRangeAbsoluteMin - *DoCEvent.DependencyRange.Minimum.StandardDeviation
+				}
+
+				if DoCEvent.DependencyRange.Minimum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin + (depRangeAbsoluteMin * ci)
+
+					} else {
+
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin - (depRangeAbsoluteMin * ci)
+					}
+
+				}
+
+				depRangeAbsoluteMax := DoCEvent.DependencyRange.Maximum.Value
+				if DoCEvent.DependencyRange.Maximum.StandardDeviation != nil {
+					depRangeAbsoluteMax = depRangeAbsoluteMax + *DoCEvent.DependencyRange.Maximum.StandardDeviation
+
+				}
+
+				if DoCEvent.DependencyRange.Maximum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax + (depRangeAbsoluteMax * ci)
+
+					} else {
+
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax - (depRangeAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min > depRangeAbsoluteMin && max < depRangeAbsoluteMax) { // partial out is ok
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.EQ:
-			// eq means the cost is equal to a specific value
+			// eq means the Cost is equal to a specific value
+			if DoCEvent.Event.AssociatedCost == nil {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.DependencyValue == nil {
+				return false, fmt.Errorf("dependent event has no value dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.Event.AssociatedCost.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoCEvent.Event.AssociatedCost.SingleNumber, DoCEvent.Event.Timeframe)
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depAbsoluteMin := DoCEvent.DependencyValue.Value
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				depAbsoluteMax := DoCEvent.DependencyValue.Value
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min > depAbsoluteMin && max < depAbsoluteMax) { // value should be in std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Range != nil {
+				base, std, err := simulateRange(DoCEvent.Event.AssociatedCost.Range, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depAbsoluteMin := DoCEvent.DependencyValue.Value
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				depAbsoluteMax := DoCEvent.DependencyValue.Value
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+
+					depAbsoluteMax = depAbsoluteMax + *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min > depAbsoluteMin && max < depAbsoluteMax) { // value should be in std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depAbsoluteMin := DoCEvent.DependencyValue.Value
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				depAbsoluteMax := DoCEvent.DependencyValue.Value
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min > depAbsoluteMin && max < depAbsoluteMax) { // value should be in std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.NEQ:
-			// neq means the cost is not equal to a specific value
+			// neq means the Cost is not equal to a specific value
+			if DoCEvent.Event.AssociatedCost == nil {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.DependencyValue == nil {
+				return false, fmt.Errorf("dependent event has no value dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.Event.AssociatedCost.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoCEvent.Event.AssociatedCost.SingleNumber, DoCEvent.Event.Timeframe)
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depAbsoluteMin := DoCEvent.DependencyValue.Value
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoCEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				depAbsoluteMax := DoCEvent.DependencyValue.Value
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min < depAbsoluteMin && max > depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Range != nil {
+				base, std, err := simulateRange(DoCEvent.Event.AssociatedCost.Range, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depAbsoluteMin := DoCEvent.DependencyValue.Value
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				depAbsoluteMax := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoCEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min < depAbsoluteMin && max > depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depAbsoluteMin := DoCEvent.DependencyValue.Value
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoCEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				depAbsoluteMax := DoCEvent.DependencyValue.Value
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+
+					depAbsoluteMax = depAbsoluteMax + *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+				}
+
+				if !(min < depAbsoluteMin && max > depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
 			break
 		case types.LT:
-			// lt means the cost is less than a specific value
+			// lt means the Cost is less than a specific value
+			if DoCEvent.Event.AssociatedCost == nil {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+
+			}
+
+			if DoCEvent.DependencyValue == nil {
+				return false, fmt.Errorf("dependent event has no value dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.Event.AssociatedCost.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoCEvent.Event.AssociatedCost.SingleNumber, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				depAbsoluteMax := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(max < depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Range != nil {
+				base, std, err := simulateRange(DoCEvent.Event.AssociatedCost.Range, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				depAbsoluteMax := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(max < depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				depAbsoluteMax := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(max < depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.GT:
-			// gt means the cost is greater than a specific value
+			// gt means the Cost is greater than a specific value
+			if DoCEvent.Event.AssociatedCost == nil {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.DependencyValue == nil {
+				return false, fmt.Errorf("dependent event has no value dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.Event.AssociatedCost.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoCEvent.Event.AssociatedCost.SingleNumber, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				depAbsoluteMin := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+
+					} else {
+
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+				}
+
+				if !(min > depAbsoluteMin) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Range != nil {
+				base, std, err := simulateRange(DoCEvent.Event.AssociatedCost.Range, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				depAbsoluteMin := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoCEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+
+					}
+
+				}
+
+				if !(min > depAbsoluteMin) { // value should be fully out of std range of dependency
+
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				depAbsoluteMin := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				if !(min > depAbsoluteMin) { // value should be fully out of std range of dependency
+
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.LTE:
-			// lte means the cost is less than or equal to a specific value
+			// lte means the Cost is less than or equal to a specific value
+			if DoCEvent.Event.AssociatedCost == nil {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.DependencyValue == nil {
+				return false, fmt.Errorf("dependent event has no value dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.Event.AssociatedCost.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoCEvent.Event.AssociatedCost.SingleNumber, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				depAbsoluteMax := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+
+					depAbsoluteMax = depAbsoluteMax + *DoCEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(max <= depAbsoluteMax) { // value should be fully out of std range of dependency
+
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Range != nil {
+				base, std, err := simulateRange(DoCEvent.Event.AssociatedCost.Range, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				depAbsoluteMax := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(max <= depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				depAbsoluteMax := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoCEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(max <= depAbsoluteMax) { // value should be fully out of std range of dependency
+
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.GTE:
-			// gte means the cost is greater than or equal to a specific value
+			// gte means the Cost is greater than or equal to a specific value
+			if DoCEvent.Event.AssociatedCost == nil {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.DependencyValue == nil {
+				return false, fmt.Errorf("dependent event has no value dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoCEvent.Event.AssociatedCost.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoCEvent.Event.AssociatedCost.SingleNumber, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				depAbsoluteMin := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				if !(min >= depAbsoluteMin) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Range != nil {
+				base, std, err := simulateRange(DoCEvent.Event.AssociatedCost.Range, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				depAbsoluteMin := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoCEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				if !(min >= depAbsoluteMin) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoCEvent.Event.AssociatedCost.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				depAbsoluteMin := DoCEvent.DependencyValue.Value
+
+				if DoCEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoCEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoCEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confCost, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
+						}
+
+						ci := confCost - (confCost * *DoCEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				if !(min >= depAbsoluteMin) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Cost to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		default:
 			return false, fmt.Errorf("invalid dependency type")
