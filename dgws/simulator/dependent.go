@@ -1,6 +1,7 @@
 package simulator
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/bcdannyboy/montecargo/dgws/types"
@@ -58,13 +59,63 @@ func DependencyCheck(
 							return false, nil // missed dependency
 						}
 					} else if DepEvent.Event.AssociatedRisk.Probability.Decomposed != nil {
-						for _, comp := range DepEvent.Event.AssociatedRisk.Probability.Decomposed.Components {
-
+						base, std, err := simulateDecomposedByAttribute(DepEvent.Event.AssociatedRisk.Probability.Decomposed, ProbabilityAttribute, DepEvent.Event.Timeframe)
+						if err != nil {
+							return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DepEvent.Event.ID, err.Error())
 						}
+
+						min := base - std
+						if min <= 0 {
+							return false, nil // missed dependency
+						}
+					} else {
+						return false, fmt.Errorf("dependent event has no probability, risk, or mitigation")
 					}
 
 				} else if DepEvent.Event.AssociatedMitigation != nil {
+					if DepEvent.Event.AssociatedMitigation.Probability == nil {
+						return false, fmt.Errorf("dependent event has no probability, risk, or mitigation")
+					}
 
+					if DepEvent.Event.AssociatedMitigation.Probability.SingleNumber != nil {
+						base, std, err := simulateSingleNumber(DepEvent.Event.AssociatedMitigation.Probability.SingleNumber, DepEvent.Event.Timeframe)
+						if err != nil {
+							return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DepEvent.Event.ID, err.Error())
+						}
+
+						min := base - std
+						if min <= 0 {
+							return false, nil // missed dependency
+						}
+
+					} else if DepEvent.Event.AssociatedMitigation.Probability.Range != nil {
+
+						base, std, err := simulateRange(DepEvent.Event.AssociatedMitigation.Probability.Range, DepEvent.Event.Timeframe)
+						if err != nil {
+							return false, fmt.Errorf("error simulating range for dependent event %d: %s", DepEvent.Event.ID, err.Error())
+						}
+
+						min := base - std
+						if min <= 0 {
+							return false, nil // missed dependency
+
+						}
+
+					} else if DepEvent.Event.AssociatedMitigation.Probability.Decomposed != nil {
+
+						base, std, err := simulateDecomposedByAttribute(DepEvent.Event.AssociatedMitigation.Probability.Decomposed, ProbabilityAttribute, DepEvent.Event.Timeframe)
+						if err != nil {
+							return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DepEvent.Event.ID, err.Error())
+						}
+
+						min := base - std
+						if min <= 0 {
+							return false, nil // missed dependency
+						}
+
+					} else {
+						return false, fmt.Errorf("dependent event has no probability, risk, or mitigation")
+					}
 				} else {
 					return false, fmt.Errorf("dependent event has no probability, risk, or mitigation")
 				}
@@ -94,14 +145,107 @@ func DependencyCheck(
 						return false, nil // missed dependency
 					}
 				} else if DoEvent.Event.AssociatedProbability.Decomposed != nil {
-					for _, comp := range DoEvent.Event.AssociatedProbability.Decomposed.Components {
-
+					base, std, err := simulateDecomposedByAttribute(DoEvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute, DoEvent.Event.Timeframe)
+					if err != nil {
+						return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoEvent.Event.ID, err.Error())
 					}
+
+					min := base - std
+					if min <= 0 {
+						return false, nil // missed dependency
+					}
+				} else {
+					return false, fmt.Errorf("dependent event %d has no probability to compare with %d", DoEvent.Event.ID, DepEvent.Event.ID)
 				}
 			}
 			break
 		case types.DoesNotHappen:
 			// does not happen means a zero probability for the event or its associated risk / mitigation if no event probability is provided
+			if DepEvent.Event.AssociatedProbability == nil {
+				if DepEvent.Event.AssociatedRisk != nil {
+					if DepEvent.Event.AssociatedRisk.Probability == nil {
+						return false, fmt.Errorf("dependent event has no probability, risk, or mitigation")
+					}
+
+					if DepEvent.Event.AssociatedRisk.Probability.SingleNumber != nil {
+						base, std, err := simulateSingleNumber(DepEvent.Event.AssociatedRisk.Probability.SingleNumber, DepEvent.Event.Timeframe)
+						if err != nil {
+							return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DepEvent.Event.ID, err.Error())
+						}
+
+						if base-std > 0 {
+							return false, nil // missed dependency
+						}
+					} else if DepEvent.Event.AssociatedRisk.Probability.Range != nil {
+						base, std, err := simulateRange(DepEvent.Event.AssociatedRisk.Probability.Range, DepEvent.Event.Timeframe)
+						if err != nil {
+							return false, fmt.Errorf("error simulating range for dependent event %d: %s", DepEvent.Event.ID, err.Error())
+						}
+
+						if base-std > 0 {
+							return false, nil // missed dependency
+						}
+					} else if DepEvent.Event.AssociatedRisk.Probability.Decomposed != nil {
+						base, std, err := simulateDecomposedByAttribute(DepEvent.Event.AssociatedRisk.Probability.Decomposed, ProbabilityAttribute, DepEvent.Event.Timeframe)
+						if err != nil {
+							return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DepEvent.Event.ID, err.Error())
+						}
+
+						if base-std > 0 {
+							return false, nil // missed dependency
+						}
+					} else {
+						return false, fmt.Errorf("dependent event has no probability, risk, or mitigation")
+					}
+
+				} else if DepEvent.Event.AssociatedMitigation != nil {
+					if DepEvent.Event.AssociatedMitigation.Probability == nil {
+						return false, fmt.Errorf("dependent event has no probability, risk, or mitigation")
+					}
+
+					if DepEvent.Event.AssociatedMitigation.Probability.SingleNumber != nil {
+						base, std, err := simulateSingleNumber(DepEvent.Event.AssociatedMitigation.Probability.SingleNumber, DepEvent.Event.Timeframe)
+						if err != nil {
+							return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DepEvent.Event.ID, err.Error())
+						}
+
+						if base-std > 0 {
+							return false, nil // missed dependency
+						}
+
+					} else if DepEvent.Event.AssociatedMitigation.Probability.Range != nil {
+
+						base, std, err := simulateRange(DepEvent.Event.AssociatedMitigation.Probability.Range, DepEvent.Event.Timeframe)
+						if err != nil {
+							return false, fmt.Errorf("error simulating range for dependent event %d: %s", DepEvent.Event.ID, err.Error())
+						}
+
+						if base-std > 0 {
+							return false, nil // missed dependency
+						}
+
+					} else if DepEvent.Event.AssociatedMitigation.Probability.Decomposed != nil {
+
+						base, std, err := simulateDecomposedByAttribute(DepEvent.Event.AssociatedMitigation.Probability.Decomposed, ProbabilityAttribute, DepEvent.Event.Timeframe)
+						if err != nil {
+							return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DepEvent.Event.ID, err.Error())
+						}
+
+						if base-std > 0 {
+							return false, nil // missed dependency
+						}
+
+					} else {
+						return false, fmt.Errorf("dependent event has no probability, risk, or mitigation")
+					}
+				} else {
+					return false, fmt.Errorf("dependent event has no probability, risk, or mitigation")
+				}
+			} else {
+				if DoEvent.Event.AssociatedProbability == nil {
+					return false, fmt.Errorf("dependent event %d has no probability to compare with %d", DoEvent.Event.ID, DepEvent.Event.ID)
+				}
+			}
 			break
 		default:
 			return false, fmt.Errorf("invalid dependency type")
@@ -220,4 +364,99 @@ func DependencyCheck(
 	}
 
 	return true, nil
+}
+
+func simulateDecomposedByAttribute(decomposed *types.Decomposed, attribute int, timeFrame uint64) (float64, float64, error) {
+	if decomposed == nil {
+		return 0, 0, errors.New("decomposed is nil")
+	}
+
+	var values, stdDevs []float64
+
+	for _, component := range decomposed.Components {
+		var compResult float64
+		var compStdDev float64
+		var err error
+
+		// Updated to use an integer attribute following the constants defined earlier
+		switch attribute {
+		case ProbabilityAttribute:
+			if component.Probability != nil {
+				comp := &Component{SingleNumber: component.Probability.SingleNumber, Range: component.Probability.Range, Decomposed: component.Probability.Decomposed}
+				compResult, compStdDev, err = handleAttributeSimulation(comp, ProbabilityAttribute, component.TimeFrame)
+			}
+		case ImpactAttribute:
+			if component.Impact != nil {
+				comp := &Component{SingleNumber: component.Impact.SingleNumber, Range: component.Impact.Range, Decomposed: component.Impact.Decomposed}
+				compResult, compStdDev, err = handleAttributeSimulation(comp, ImpactAttribute, component.TimeFrame)
+			}
+		case CostAttribute:
+			if component.Cost != nil {
+				comp := &Component{SingleNumber: component.Cost.SingleNumber, Range: component.Cost.Range, Decomposed: component.Cost.Decomposed}
+				compResult, compStdDev, err = handleAttributeSimulation(comp, CostAttribute, component.TimeFrame)
+			}
+		default:
+			return 0, 0, errors.New("invalid attribute specified")
+		}
+
+		if err != nil {
+			return 0, 0, err
+		}
+
+		// Directly appending values as they are no longer pointers
+		values = append(values, compResult)
+		stdDevs = append(stdDevs, compStdDev)
+	}
+
+	if len(values) == 0 || len(stdDevs) == 0 {
+		return 0, 0, errors.New("no valid components for simulation")
+	}
+
+	// Compute composite result using the utility function
+	compositeValue, compositeStdDev := utils.ComputeCompositeLogNormal(values, stdDevs)
+
+	return compositeValue, compositeStdDev, nil
+}
+
+func handleAttributeSimulation(component *Component, attribute int, timeFrame uint64) (float64, float64, error) {
+	if component.SingleNumber != nil {
+		result, err := SimulateIndependentSingleNumer(component.SingleNumber, timeFrame)
+		if err != nil {
+			return 0, 0, err
+		}
+		stdDev := 0.0 // Default to 0 if not provided
+		if component.SingleNumber.StandardDeviation != nil {
+			stdDev = *component.SingleNumber.StandardDeviation
+		}
+		return *result, stdDev, nil
+	} else if component.Range != nil {
+		result, err := SimulateIndependentRange(component.Range, timeFrame)
+		if err != nil {
+			return 0, 0, err
+		}
+		// Compute the average standard deviation of the range's min and max if they exist
+		stdDev := 0.0
+		if component.Range.Minimum.StandardDeviation != nil && component.Range.Maximum.StandardDeviation != nil {
+			stdDev = (*component.Range.Minimum.StandardDeviation + *component.Range.Maximum.StandardDeviation) / 2
+		}
+		return *result, stdDev, nil
+	} else if component.Decomposed != nil {
+		probComposite, probStdDev, impactComposite, impactStdDev, costComposite, costStdDev, err := SimulateIndependentDecomposed(component.Decomposed)
+		if err != nil {
+			return 0, 0, err
+		}
+		// Select the appropriate attribute's composite value and standard deviation
+		switch attribute {
+		case ProbabilityAttribute:
+			return probComposite, probStdDev, nil
+		case ImpactAttribute:
+			return impactComposite, impactStdDev, nil
+		case CostAttribute:
+			return costComposite, costStdDev, nil
+		default:
+			return 0, 0, errors.New("invalid attribute specified")
+		}
+	}
+
+	return 0, 0, errors.New("invalid component")
 }

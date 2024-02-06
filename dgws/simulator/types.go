@@ -7,3 +7,9 @@ type Component struct {
 	Range        *types.Range
 	Decomposed   *types.Decomposed
 }
+
+const (
+	ProbabilityAttribute = iota
+	ImpactAttribute
+	CostAttribute
+)
