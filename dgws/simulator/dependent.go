@@ -2222,7 +2222,6 @@ func DependencyCheck(
 	}
 
 	for _, DoI := range DepEvent.Event.DependsOnImpact {
-		// Process Depends on Impact
 		DoIEvent, err := utils.FindEventByID(*DoI.DependentEventID, Events)
 		if err != nil {
 			return false, fmt.Errorf("dependent event %d not found", *DoI.DependentEventID)
@@ -2250,6 +2249,7 @@ func DependencyCheck(
 			dEvent, err := utils.FindEventByID(*dID, Events)
 			if err != nil {
 				return false, fmt.Errorf("dependent event %d not found", *dID)
+
 			}
 
 			if dEvent == nil || dEvent.Event == nil {
@@ -2257,7 +2257,6 @@ func DependencyCheck(
 			}
 
 			hitormiss, err := DependencyCheck(dEvent, DoIEvent.DependencyType, Events, dValue, dRange, dDecomp)
-
 			if err != nil {
 				return false, fmt.Errorf("error checking dependency for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
 			}
@@ -2265,39 +2264,1888 @@ func DependencyCheck(
 			if !hitormiss {
 				return false, nil // missed dependency
 			}
-
 		}
 
+		// Process Depends on Impact
 		switch DType {
 		case types.Has:
-			// has means the impact is dependent on a non-zero specific component of the decomposed attribute of the dependent event
+			// has means the Impact is dependent on a non-zero specific component of the decomposed attribute of the dependent event
+
+			if DoIEvent.Event.AssociatedImpact == nil {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.Event.AssociatedImpact.Decomposed == nil {
+				return false, fmt.Errorf("dependent event has no decomposed Impact to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.DependencyDecomp == nil {
+				return false, fmt.Errorf("dependent event has no decomposed dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			found := false
+			for _, component := range DoIEvent.Event.AssociatedImpact.Decomposed.Components {
+				for _, expectedComponent := range DoIEvent.DependencyDecomp.Components {
+					if component.ComponentID == expectedComponent.ComponentID {
+						found = true
+						if component.Impact != nil {
+							if component.Impact.SingleNumber != nil {
+								base, std, err := simulateSingleNumber(component.Impact.SingleNumber, DoIEvent.Event.Timeframe)
+								if err != nil {
+									return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+								}
+
+								min := base - std
+								if min <= 0 {
+									return false, nil // missed dependency
+								}
+							} else if component.Impact.Range != nil {
+								base, std, err := simulateRange(component.Impact.Range, DoIEvent.Event.Timeframe)
+								if err != nil {
+									return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+								}
+
+								min := base - std
+								if min <= 0 {
+									return false, nil // missed dependency
+								}
+							} else if component.Impact.Decomposed != nil {
+								base, std, err := simulateDecomposedByAttribute(component.Impact.Decomposed, ImpactAttribute, DoIEvent.Event.Timeframe)
+								if err != nil {
+									return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+								}
+
+								min := base - std
+								if min <= 0 {
+									return false, nil // missed dependency
+								}
+							} else {
+								return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+							}
+						} else {
+							return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+						}
+					}
+				}
+			}
+
+			if !found {
+				return false, fmt.Errorf("dependent event has no decomposed dependency to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.HasNot:
-			// has not means the impact is dependent on a zero specific component of the decomposed attribute of the dependent event
+			// has not means the Impact is dependent on a zero specific component of the decomposed attribute of the dependent event
+
+			if DoIEvent.Event.AssociatedImpact == nil {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.Event.AssociatedImpact.Decomposed == nil {
+				return false, fmt.Errorf("dependent event has no decomposed Impact to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.DependencyDecomp == nil {
+				return false, fmt.Errorf("dependent event has no decomposed dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			found := false
+			for _, component := range DoIEvent.Event.AssociatedImpact.Decomposed.Components {
+				for _, expectedComponent := range DoIEvent.DependencyDecomp.Components {
+					if component.ComponentID == expectedComponent.ComponentID {
+						found = true
+						if component.Impact != nil {
+							if component.Impact.SingleNumber != nil {
+								base, std, err := simulateSingleNumber(component.Impact.SingleNumber, DoIEvent.Event.Timeframe)
+								if err != nil {
+									return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+								}
+
+								if base-std > 0 {
+									return false, nil // missed dependency
+								}
+
+							} else if component.Impact.Range != nil {
+								base, std, err := simulateRange(component.Impact.Range, DoIEvent.Event.Timeframe)
+								if err != nil {
+									return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+								}
+
+								if base-std > 0 {
+									return false, nil // missed dependency
+								}
+
+							} else if component.Impact.Decomposed != nil {
+								base, std, err := simulateDecomposedByAttribute(component.Impact.Decomposed, ImpactAttribute, DoIEvent.Event.Timeframe)
+								if err != nil {
+									return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+								}
+
+								if base-std > 0 {
+									return false, nil // missed dependency
+
+								}
+
+							} else {
+								return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+							}
+
+						} else {
+							return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+						}
+
+					}
+
+				}
+
+			}
+
+			if !found {
+				return false, fmt.Errorf("dependent event has no decomposed dependency to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.In:
-			// in means the impact is in a specific range
+			// in means the Impact is in a specific range
+			if DoIEvent.Event.AssociatedImpact == nil {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.DependencyRange == nil {
+				return false, fmt.Errorf("dependent event has no range dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.Event.AssociatedImpact.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoIEvent.Event.AssociatedImpact.SingleNumber, DoIEvent.Event.Timeframe)
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depRangeAbsoluteMin := DoIEvent.DependencyRange.Minimum.Value
+				if DoIEvent.DependencyRange.Minimum.StandardDeviation != nil {
+					depRangeAbsoluteMin = depRangeAbsoluteMin - *DoIEvent.DependencyRange.Minimum.StandardDeviation
+				}
+				if DoIEvent.DependencyRange.Minimum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin + (depRangeAbsoluteMin * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin - (depRangeAbsoluteMin * ci)
+					}
+				}
+
+				depRangeAbsoluteMax := DoIEvent.DependencyRange.Maximum.Value
+				if DoIEvent.DependencyRange.Maximum.StandardDeviation != nil {
+					depRangeAbsoluteMax = depRangeAbsoluteMax + *DoIEvent.DependencyRange.Maximum.StandardDeviation
+				}
+				if DoIEvent.DependencyRange.Maximum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax + (depRangeAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax - (depRangeAbsoluteMax * ci)
+					}
+				}
+
+				if !(min < depRangeAbsoluteMin && max > depRangeAbsoluteMax) { // partial in is ok
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Range != nil {
+				base, std, err := simulateRange(DoIEvent.Event.AssociatedImpact.Range, DoIEvent.Event.Timeframe)
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depRangeAbsoluteMin := DoIEvent.DependencyRange.Minimum.Value
+				if DoIEvent.DependencyRange.Minimum.StandardDeviation != nil {
+					depRangeAbsoluteMin = depRangeAbsoluteMin - *DoIEvent.DependencyRange.Minimum.StandardDeviation
+				}
+
+				if DoIEvent.DependencyRange.Minimum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin + (depRangeAbsoluteMin * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin - (depRangeAbsoluteMin * ci)
+					}
+				}
+
+				depRangeAbsoluteMax := DoIEvent.DependencyRange.Maximum.Value
+				if DoIEvent.DependencyRange.Maximum.StandardDeviation != nil {
+					depRangeAbsoluteMax = depRangeAbsoluteMax + *DoIEvent.DependencyRange.Maximum.StandardDeviation
+				}
+
+				if DoIEvent.DependencyRange.Maximum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax + (depRangeAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax - (depRangeAbsoluteMax * ci)
+					}
+				}
+
+				if !(min < depRangeAbsoluteMin && max > depRangeAbsoluteMax) { // partial in is ok
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoIEvent.Event.AssociatedImpact.Decomposed, ImpactAttribute, DoIEvent.Event.Timeframe)
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depRangeAbsoluteMin := DoIEvent.DependencyRange.Minimum.Value
+				if DoIEvent.DependencyRange.Minimum.StandardDeviation != nil {
+					depRangeAbsoluteMin = depRangeAbsoluteMin - *DoIEvent.DependencyRange.Minimum.StandardDeviation
+				}
+
+				if DoIEvent.DependencyRange.Minimum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin + (depRangeAbsoluteMin * ci)
+
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin - (depRangeAbsoluteMin * ci)
+					}
+				}
+
+				depRangeAbsoluteMax := DoIEvent.DependencyRange.Maximum.Value
+				if DoIEvent.DependencyRange.Maximum.StandardDeviation != nil {
+					depRangeAbsoluteMax = depRangeAbsoluteMax + *DoIEvent.DependencyRange.Maximum.StandardDeviation
+				}
+
+				if DoIEvent.DependencyRange.Maximum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax + (depRangeAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax - (depRangeAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min < depRangeAbsoluteMin && max > depRangeAbsoluteMax) { // partial in is ok
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
 			break
 		case types.Out:
-			// out means the impact is outside a specific range
+			// out means the Impact is outside a specific range
+			if DoIEvent.Event.AssociatedImpact == nil {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.DependencyRange == nil {
+				return false, fmt.Errorf("dependent event has no range dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.Event.AssociatedImpact.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoIEvent.Event.AssociatedImpact.SingleNumber, DoIEvent.Event.Timeframe)
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depRangeAbsoluteMin := DoIEvent.DependencyRange.Minimum.Value
+				if DoIEvent.DependencyRange.Minimum.StandardDeviation != nil {
+					depRangeAbsoluteMin = depRangeAbsoluteMin - *DoIEvent.DependencyRange.Minimum.StandardDeviation
+				}
+
+				if DoIEvent.DependencyRange.Minimum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin + (depRangeAbsoluteMin * ci)
+
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin - (depRangeAbsoluteMin * ci)
+					}
+
+				}
+
+				depRangeAbsoluteMax := DoIEvent.DependencyRange.Maximum.Value
+				if DoIEvent.DependencyRange.Maximum.StandardDeviation != nil {
+					depRangeAbsoluteMax = depRangeAbsoluteMax + *DoIEvent.DependencyRange.Maximum.StandardDeviation
+				}
+
+				if DoIEvent.DependencyRange.Maximum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax + (depRangeAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax - (depRangeAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min > depRangeAbsoluteMin && max < depRangeAbsoluteMax) { // partial out is ok
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Range != nil {
+				base, std, err := simulateRange(DoIEvent.Event.AssociatedImpact.Range, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depRangeAbsoluteMin := DoIEvent.DependencyRange.Minimum.Value
+				if DoIEvent.DependencyRange.Minimum.StandardDeviation != nil {
+					depRangeAbsoluteMin = depRangeAbsoluteMin - *DoIEvent.DependencyRange.Minimum.StandardDeviation
+				}
+
+				if DoIEvent.DependencyRange.Minimum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin + (depRangeAbsoluteMin * ci)
+
+					} else {
+
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin - (depRangeAbsoluteMin * ci)
+
+					}
+
+				}
+
+				depRangeAbsoluteMax := DoIEvent.DependencyRange.Maximum.Value
+				if DoIEvent.DependencyRange.Maximum.StandardDeviation != nil {
+
+					depRangeAbsoluteMax = depRangeAbsoluteMax + *DoIEvent.DependencyRange.Maximum.StandardDeviation
+				}
+
+				if DoIEvent.DependencyRange.Maximum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax + (depRangeAbsoluteMax * ci)
+					} else {
+
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax - (depRangeAbsoluteMax * ci)
+
+					}
+
+				}
+
+				if !(min > depRangeAbsoluteMin && max < depRangeAbsoluteMax) { // partial out is ok
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoIEvent.Event.AssociatedImpact.Decomposed, ImpactAttribute, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depRangeAbsoluteMin := DoIEvent.DependencyRange.Minimum.Value
+				if DoIEvent.DependencyRange.Minimum.StandardDeviation != nil {
+					depRangeAbsoluteMin = depRangeAbsoluteMin - *DoIEvent.DependencyRange.Minimum.StandardDeviation
+				}
+
+				if DoIEvent.DependencyRange.Minimum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin + (depRangeAbsoluteMin * ci)
+
+					} else {
+
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Minimum.Confidence)
+
+						depRangeAbsoluteMin = depRangeAbsoluteMin - (depRangeAbsoluteMin * ci)
+					}
+
+				}
+
+				depRangeAbsoluteMax := DoIEvent.DependencyRange.Maximum.Value
+				if DoIEvent.DependencyRange.Maximum.StandardDeviation != nil {
+					depRangeAbsoluteMax = depRangeAbsoluteMax + *DoIEvent.DependencyRange.Maximum.StandardDeviation
+
+				}
+
+				if DoIEvent.DependencyRange.Maximum.Confidence != nil {
+					confCF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if confCF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax + (depRangeAbsoluteMax * ci)
+
+					} else {
+
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyRange.Maximum.Confidence)
+
+						depRangeAbsoluteMax = depRangeAbsoluteMax - (depRangeAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min > depRangeAbsoluteMin && max < depRangeAbsoluteMax) { // partial out is ok
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.EQ:
-			// eq means the impact is equal to a specific value
+			// eq means the Impact is equal to a specific value
+			if DoIEvent.Event.AssociatedImpact == nil {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.DependencyValue == nil {
+				return false, fmt.Errorf("dependent event has no value dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.Event.AssociatedImpact.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoIEvent.Event.AssociatedImpact.SingleNumber, DoIEvent.Event.Timeframe)
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depAbsoluteMin := DoIEvent.DependencyValue.Value
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				depAbsoluteMax := DoIEvent.DependencyValue.Value
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min > depAbsoluteMin && max < depAbsoluteMax) { // value should be in std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Range != nil {
+				base, std, err := simulateRange(DoIEvent.Event.AssociatedImpact.Range, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depAbsoluteMin := DoIEvent.DependencyValue.Value
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				depAbsoluteMax := DoIEvent.DependencyValue.Value
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+
+					depAbsoluteMax = depAbsoluteMax + *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min > depAbsoluteMin && max < depAbsoluteMax) { // value should be in std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoIEvent.Event.AssociatedImpact.Decomposed, ImpactAttribute, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depAbsoluteMin := DoIEvent.DependencyValue.Value
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				depAbsoluteMax := DoIEvent.DependencyValue.Value
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min > depAbsoluteMin && max < depAbsoluteMax) { // value should be in std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.NEQ:
-			// neq means the impact is not equal to a specific value
+			// neq means the Impact is not equal to a specific value
+			if DoIEvent.Event.AssociatedImpact == nil {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.DependencyValue == nil {
+				return false, fmt.Errorf("dependent event has no value dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.Event.AssociatedImpact.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoIEvent.Event.AssociatedImpact.SingleNumber, DoIEvent.Event.Timeframe)
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depAbsoluteMin := DoIEvent.DependencyValue.Value
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoIEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				depAbsoluteMax := DoIEvent.DependencyValue.Value
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min < depAbsoluteMin && max > depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Range != nil {
+				base, std, err := simulateRange(DoIEvent.Event.AssociatedImpact.Range, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depAbsoluteMin := DoIEvent.DependencyValue.Value
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				depAbsoluteMax := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoIEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(min < depAbsoluteMin && max > depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoIEvent.Event.AssociatedImpact.Decomposed, ImpactAttribute, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+				max := base + std
+
+				depAbsoluteMin := DoIEvent.DependencyValue.Value
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoIEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				depAbsoluteMax := DoIEvent.DependencyValue.Value
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+
+					depAbsoluteMax = depAbsoluteMax + *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+				}
+
+				if !(min < depAbsoluteMin && max > depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
 			break
 		case types.LT:
-			// lt means the impact is less than a specific value
+			// lt means the Impact is less than a specific value
+			if DoIEvent.Event.AssociatedImpact == nil {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+
+			}
+
+			if DoIEvent.DependencyValue == nil {
+				return false, fmt.Errorf("dependent event has no value dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.Event.AssociatedImpact.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoIEvent.Event.AssociatedImpact.SingleNumber, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				depAbsoluteMax := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(max < depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Range != nil {
+				base, std, err := simulateRange(DoIEvent.Event.AssociatedImpact.Range, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				depAbsoluteMax := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(max < depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoIEvent.Event.AssociatedImpact.Decomposed, ImpactAttribute, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				depAbsoluteMax := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(max < depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.GT:
-			// gt means the impact is greater than a specific value
+			// gt means the Impact is greater than a specific value
+			if DoIEvent.Event.AssociatedImpact == nil {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.DependencyValue == nil {
+				return false, fmt.Errorf("dependent event has no value dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.Event.AssociatedImpact.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoIEvent.Event.AssociatedImpact.SingleNumber, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				depAbsoluteMin := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+
+					} else {
+
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+				}
+
+				if !(min > depAbsoluteMin) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Range != nil {
+				base, std, err := simulateRange(DoIEvent.Event.AssociatedImpact.Range, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				depAbsoluteMin := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoIEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+
+					}
+
+				}
+
+				if !(min > depAbsoluteMin) { // value should be fully out of std range of dependency
+
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoIEvent.Event.AssociatedImpact.Decomposed, ImpactAttribute, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				depAbsoluteMin := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				if !(min > depAbsoluteMin) { // value should be fully out of std range of dependency
+
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.LTE:
-			// lte means the impact is less than or equal to a specific value
+			// lte means the Impact is less than or equal to a specific value
+			if DoIEvent.Event.AssociatedImpact == nil {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.DependencyValue == nil {
+				return false, fmt.Errorf("dependent event has no value dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.Event.AssociatedImpact.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoIEvent.Event.AssociatedImpact.SingleNumber, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				depAbsoluteMax := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+
+					depAbsoluteMax = depAbsoluteMax + *DoIEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(max <= depAbsoluteMax) { // value should be fully out of std range of dependency
+
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Range != nil {
+				base, std, err := simulateRange(DoIEvent.Event.AssociatedImpact.Range, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				depAbsoluteMax := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(max <= depAbsoluteMax) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoIEvent.Event.AssociatedImpact.Decomposed, ImpactAttribute, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				depAbsoluteMax := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMax = depAbsoluteMax + *DoIEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax + (depAbsoluteMax * ci)
+
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMax = depAbsoluteMax - (depAbsoluteMax * ci)
+					}
+
+				}
+
+				if !(max <= depAbsoluteMax) { // value should be fully out of std range of dependency
+
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.GTE:
-			// gte means the impact is greater than or equal to a specific value
+			// gte means the Impact is greater than or equal to a specific value
+			if DoIEvent.Event.AssociatedImpact == nil {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.DependencyValue == nil {
+				return false, fmt.Errorf("dependent event has no value dependency to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoIEvent.Event.AssociatedImpact.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoIEvent.Event.AssociatedImpact.SingleNumber, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				depAbsoluteMin := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				if !(min >= depAbsoluteMin) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Range != nil {
+				base, std, err := simulateRange(DoIEvent.Event.AssociatedImpact.Range, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				depAbsoluteMin := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoIEvent.DependencyValue.StandardDeviation
+
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				if !(min >= depAbsoluteMin) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else if DoIEvent.Event.AssociatedImpact.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoIEvent.Event.AssociatedImpact.Decomposed, ImpactAttribute, DoIEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				depAbsoluteMin := DoIEvent.DependencyValue.Value
+
+				if DoIEvent.DependencyValue.StandardDeviation != nil {
+					depAbsoluteMin = depAbsoluteMin - *DoIEvent.DependencyValue.StandardDeviation
+				}
+
+				if DoIEvent.DependencyValue.Confidence != nil {
+					CF, err := utils.CoinFlip()
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating coin flip for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+					}
+
+					if CF {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin + (depAbsoluteMin * ci)
+					} else {
+						confimpact, err := utils.CryptoRandFloat64()
+
+						if err != nil {
+							return false, fmt.Errorf("error simulating crypto rand float64 for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
+						}
+
+						ci := confimpact - (confimpact * *DoIEvent.DependencyValue.Confidence)
+
+						depAbsoluteMin = depAbsoluteMin - (depAbsoluteMin * ci)
+					}
+
+				}
+
+				if !(min >= depAbsoluteMin) { // value should be fully out of std range of dependency
+					return false, nil // missed dependency
+				}
+
+			} else {
+				return false, fmt.Errorf("dependent event has no Impact to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		default:
 			return false, fmt.Errorf("invalid dependency type")
