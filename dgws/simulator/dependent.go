@@ -2051,9 +2051,35 @@ func SimulateDependentEvent(event *types.Event, Events []*utils.FilteredEvent, R
 			}
 			depEvent = de
 		} else {
-			depEvent.Event.AssociatedProbability.SingleNumber.Value = inResults.Probability
-			depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation = &inResults.ProbabilityStandardDeviation
-			depEvent.Event.AssociatedProbability.SingleNumber.Confidence = utils.Float64toPointer(0.95)
+
+			resultID := inResults.EventID
+			for _, ev := range Events {
+				if ev.ID == resultID {
+					depEvent.Event = ev.Event
+					break
+				}
+			}
+
+			if depEvent.Event.AssociatedProbability == nil {
+				de, err := utils.FindEventByID(*dei, Events)
+				if err != nil {
+					de = nil
+				}
+
+				depEvent = de
+			}
+
+			if depEvent.Event.AssociatedProbability != nil {
+				depEvent.Event.AssociatedProbability.SingleNumber.Value = inResults.Probability
+				depEvent.Event.AssociatedProbability.SingleNumber.StandardDeviation = &inResults.ProbabilityStandardDeviation
+				depEvent.Event.AssociatedProbability.SingleNumber.Confidence = utils.Float64toPointer(0.95)
+			} else {
+				de, err := utils.FindEventByID(*dei, Events)
+				if err != nil {
+					de = nil
+				}
+				depEvent = de
+			}
 		}
 
 		if depEvent == nil {
