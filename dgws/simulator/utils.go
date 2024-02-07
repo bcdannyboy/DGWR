@@ -2,6 +2,7 @@ package simulator
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/bcdannyboy/montecargo/dgws/types"
 	"github.com/bcdannyboy/montecargo/dgws/utils"
@@ -404,4 +405,263 @@ func SimulateIndependentEvent(event *utils.FilteredEvent) (*types.SimulationResu
 	}
 
 	return results, nil
+}
+
+func CheckRiskDependencies(risk *types.Risk, events []*utils.FilteredEvent, risks []*types.Risk, dependenciesType uint64) (bool, error) {
+
+	for _, riskDep := range risk.DependsOnRisk {
+		if riskDep.DependentRiskID == nil {
+			return false, errors.New("dependent risk ID is nil")
+		}
+
+		if *riskDep.DependentRiskID == risk.ID {
+			return false, errors.New("risk cannot depend on itself")
+		}
+
+		depRisk, err := utils.FindRiskByID(*riskDep.DependentRiskID, risks)
+		if err != nil {
+			return false, fmt.Errorf("error finding dependent risk %d: %s", *riskDep.DependentRiskID, err)
+		}
+		if depRisk == nil {
+			return false, fmt.Errorf("dependent risk %d not found", *riskDep.DependentRiskID)
+		}
+
+		hit, err := CheckRiskDependencies(depRisk, events, risks, riskDep.Type)
+		if err != nil || !hit {
+			return false, err
+		}
+	}
+
+	for _, eventDep := range risk.DependsOnEvent {
+		depEvent, err := utils.FindEventByID(eventDep.DependentEventID, events)
+		if err != nil {
+			return false, fmt.Errorf("error finding dependent event %d: %s", eventDep.DependentEventID, err)
+		}
+		if depEvent == nil {
+			return false, fmt.Errorf("dependent event %d not found", eventDep.DependentEventID)
+		}
+
+		hit, err := DependencyCheck(depEvent, dependenciesType, events, risks, nil, nil, nil, nil)
+		if err != nil || !hit {
+			return false, err
+		}
+	}
+
+	switch dependenciesType {
+	case types.Exists:
+		// check risk has non-zero probability and impact
+		if risk.Probability.SingleNumber != nil {
+			base, err := SimulateIndependentSingleNumer(risk.Probability.SingleNumber, risk.TimeFrame)
+			if err != nil {
+				return false, err
+			}
+
+			if *base <= 0 {
+				return false, fmt.Errorf("risk %d has zero probability", risk.ID)
+			}
+
+		} else if risk.Probability.Range != nil {
+			base, err := SimulateIndependentRange(risk.Probability.Range, risk.TimeFrame)
+			if err != nil {
+				return false, err
+			}
+
+			if *base <= 0 {
+				return false, fmt.Errorf("risk %d has zero probability", risk.ID)
+			}
+
+		} else if risk.Probability.Decomposed != nil {
+			base, _, _, _, _, _, err := SimulateIndependentDecomposed(risk.Probability.Decomposed)
+			if err != nil {
+				return false, err
+			}
+
+			if base <= 0 {
+				return false, fmt.Errorf("risk %d has zero probability", risk.ID)
+			}
+
+		} else {
+			return false, fmt.Errorf("risk %d has no probability", risk.ID)
+		}
+	case types.DoesNotExist:
+		// check risk has zero probability and impact
+		if risk.Probability.SingleNumber != nil {
+			base, err := SimulateIndependentSingleNumer(risk.Probability.SingleNumber, risk.TimeFrame)
+			if err != nil {
+				return false, err
+			}
+
+			if *base > 0 {
+				return false, fmt.Errorf("risk %d has non-zero probability", risk.ID)
+			}
+
+		} else if risk.Probability.Range != nil {
+			base, err := SimulateIndependentRange(risk.Probability.Range, risk.TimeFrame)
+			if err != nil {
+				return false, err
+			}
+
+			if *base > 0 {
+				return false, fmt.Errorf("risk %d has non-zero probability", risk.ID)
+			}
+
+		} else if risk.Probability.Decomposed != nil {
+			base, _, _, _, _, _, err := SimulateIndependentDecomposed(risk.Probability.Decomposed)
+			if err != nil {
+				return false, err
+			}
+
+			if base > 0 {
+				return false, fmt.Errorf("risk %d has non-zero probability", risk.ID)
+			}
+
+		} else {
+			return false, fmt.Errorf("risk %d has no probability", risk.ID)
+		}
+	default:
+		return false, fmt.Errorf("invalid dependency type %d", dependenciesType)
+	}
+
+	return true, nil
+}
+
+// CheckMitigationDependencies checks if a mitigation's dependencies on risks, events, or other mitigations are met.
+func CheckMitigationDependencies(mitigation *types.Mitigation, events []*utils.FilteredEvent, risks []*types.Risk, mitigations []*types.Mitigation, dependenciesType uint64) (bool, error) {
+	// Check dependencies on events
+	for _, eventDep := range mitigation.DependsOnEvent {
+		depEvent, err := utils.FindEventByID(eventDep.DependentEventID, events)
+		if err != nil {
+			return false, fmt.Errorf("error finding dependent event %d: %s", eventDep.DependentEventID, err)
+		}
+		if depEvent == nil {
+			return false, fmt.Errorf("dependent event %d not found", eventDep.DependentEventID)
+		}
+
+		hit, err := DependencyCheck(depEvent, dependenciesType, events, risks, nil, nil, nil, nil)
+		if err != nil || !hit {
+			return false, err
+		}
+	}
+
+	// Check dependencies on risks
+	for _, riskDep := range mitigation.DependsOnRisk {
+		if riskDep.DependentRiskID == nil {
+			return false, errors.New("dependent risk ID is nil")
+		}
+
+		depRisk, err := utils.FindRiskByID(*riskDep.DependentRiskID, risks)
+		if err != nil {
+			return false, fmt.Errorf("error finding dependent risk %d: %s", *riskDep.DependentRiskID, err)
+		}
+		if depRisk == nil {
+			return false, fmt.Errorf("dependent risk %d not found", *riskDep.DependentRiskID)
+		}
+
+		// Assuming risks can be evaluated similarly to events
+		hit, err := CheckRiskDependencies(depRisk, events, risks, riskDep.Type)
+		if err != nil || !hit {
+			return false, err
+		}
+	}
+
+	// Check dependencies on other mitigations (if applicable)
+	for _, mitDep := range mitigation.DependsOnMitigation {
+		if mitDep.DependentMitigationOrRiskID == nil {
+			return false, errors.New("dependent mitigation ID is nil")
+		}
+
+		depMitigation, err := utils.FindMitigationByID(*mitDep.DependentMitigationOrRiskID, mitigations)
+		if err != nil {
+			return false, fmt.Errorf("error finding dependent mitigation %d: %s", *mitDep.DependentMitigationOrRiskID, err)
+		}
+		if depMitigation == nil {
+			return false, fmt.Errorf("dependent mitigation %d not found", *mitDep.DependentMitigationOrRiskID)
+		}
+
+		// Recursively check the dependencies of the dependent mitigation
+		hit, err := CheckMitigationDependencies(depMitigation, events, risks, mitigations, mitDep.Type)
+		if err != nil || !hit {
+			return false, err
+		}
+	}
+
+	switch dependenciesType {
+	case types.Exists:
+		// check mitigation has non-zero probability and impact
+		if mitigation.Probability.SingleNumber != nil {
+			base, err := SimulateIndependentSingleNumer(mitigation.Probability.SingleNumber, mitigation.TimeFrame)
+			if err != nil {
+				return false, err
+			}
+
+			if *base <= 0 {
+				return false, fmt.Errorf("mitigation %d has zero probability", mitigation.ID)
+			}
+
+		} else if mitigation.Probability.Range != nil {
+			base, err := SimulateIndependentRange(mitigation.Probability.Range, mitigation.TimeFrame)
+			if err != nil {
+				return false, err
+			}
+
+			if *base <= 0 {
+				return false, fmt.Errorf("mitigation %d has zero probability", mitigation.ID)
+			}
+
+		} else if mitigation.Probability.Decomposed != nil {
+			base, _, _, _, _, _, err := SimulateIndependentDecomposed(mitigation.Probability.Decomposed)
+			if err != nil {
+				return false, err
+			}
+
+			if base <= 0 {
+				return false, fmt.Errorf("mitigation %d has zero probability", mitigation.ID)
+			}
+
+		} else {
+			return false, fmt.Errorf("mitigation %d has no probability", mitigation.ID)
+		}
+
+		break
+	case types.DoesNotExist:
+		// check mitigation has zero probability
+		if mitigation.Probability.SingleNumber != nil {
+			base, err := SimulateIndependentSingleNumer(mitigation.Probability.SingleNumber, mitigation.TimeFrame)
+			if err != nil {
+				return false, err
+			}
+
+			if *base > 0 {
+				return false, fmt.Errorf("mitigation %d has non-zero probability", mitigation.ID)
+			}
+
+		} else if mitigation.Probability.Range != nil {
+			base, err := SimulateIndependentRange(mitigation.Probability.Range, mitigation.TimeFrame)
+			if err != nil {
+				return false, err
+			}
+
+			if *base > 0 {
+				return false, fmt.Errorf("mitigation %d has non-zero probability", mitigation.ID)
+			}
+
+		} else if mitigation.Probability.Decomposed != nil {
+			base, _, _, _, _, _, err := SimulateIndependentDecomposed(mitigation.Probability.Decomposed)
+			if err != nil {
+				return false, err
+			}
+
+			if base > 0 {
+				return false, fmt.Errorf("mitigation %d has non-zero probability", mitigation.ID)
+			}
+
+		} else {
+			return false, fmt.Errorf("mitigation %d has no probability", mitigation.ID)
+		}
+		break
+	default:
+		return false, fmt.Errorf("invalid dependency type %d", dependenciesType)
+	}
+
+	return true, nil
 }

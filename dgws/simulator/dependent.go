@@ -11,6 +11,8 @@ func DependencyCheck(
 	DepEvent *utils.FilteredEvent,
 	DType uint64,
 	Events []*utils.FilteredEvent,
+	Risks []*types.Risk,
+	Mitigations []*types.Mitigation,
 	ExpectedValue *types.SingleNumber,
 	ExpectedRange *types.Range,
 	ExpectedDecomp *types.Decomposed) (bool, error) {
@@ -55,7 +57,7 @@ func DependencyCheck(
 				return false, fmt.Errorf("dependent event %d is nil", *dID)
 			}
 
-			hitormiss, err := DependencyCheck(dEvent, DoEvent.DependencyType, Events, dValue, dRange, dDecomp)
+			hitormiss, err := DependencyCheck(dEvent, DoEvent.DependencyType, Events, Risks, Mitigations, dValue, dRange, dDecomp)
 			if err != nil {
 				return false, fmt.Errorf("error checking dependency for dependent event %d: %s", DoEvent.Event.ID, err.Error())
 			}
@@ -325,7 +327,7 @@ func DependencyCheck(
 				return false, fmt.Errorf("dependent event %d is nil", *dID)
 			}
 
-			hitormiss, err := DependencyCheck(dEvent, DoPEvent.DependencyType, Events, dValue, dRange, dDecomp)
+			hitormiss, err := DependencyCheck(dEvent, DoPEvent.DependencyType, Events, Risks, Mitigations, dValue, dRange, dDecomp)
 			if err != nil {
 				return false, fmt.Errorf("error checking dependency for dependent event %d: %s", DoPEvent.Event.ID, err.Error())
 			}
@@ -2256,7 +2258,7 @@ func DependencyCheck(
 				return false, fmt.Errorf("dependent event %d is nil", *dID)
 			}
 
-			hitormiss, err := DependencyCheck(dEvent, DoIEvent.DependencyType, Events, dValue, dRange, dDecomp)
+			hitormiss, err := DependencyCheck(dEvent, DoIEvent.DependencyType, Events, Risks, Mitigations, dValue, dRange, dDecomp)
 			if err != nil {
 				return false, fmt.Errorf("error checking dependency for dependent event %d: %s", DoIEvent.Event.ID, err.Error())
 			}
@@ -4187,7 +4189,7 @@ func DependencyCheck(
 				return false, fmt.Errorf("dependent event %d is nil", *dID)
 			}
 
-			hitormiss, err := DependencyCheck(dEvent, DoCEvent.DependencyType, Events, dValue, dRange, dDecomp)
+			hitormiss, err := DependencyCheck(dEvent, DoCEvent.DependencyType, Events, Risks, Mitigations, dValue, dRange, dDecomp)
 			if err != nil {
 				return false, fmt.Errorf("error checking dependency for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
 			}
@@ -6085,32 +6087,400 @@ func DependencyCheck(
 
 	for _, DoR := range DepEvent.Event.DependsOnRisk {
 		// Process Depends on Risk
+		if DoR.DependentEventID == nil && DoR.DependentRiskID == nil {
+			return false, fmt.Errorf("DependsOnRisk has no DependentEventID or DependentRiskID")
+		}
 
-		switch DType {
-		case types.Exists:
-			// exists means the risk has a non-zero probability and impact
-			break
-		case types.DoesNotExist:
-			// does not exist means the risk has a zero probability and impact
-			break
-		default:
-			return false, fmt.Errorf("invalid dependency type")
+		var DoRRisk *types.Risk = nil
+		var DoREvent *utils.FilteredEvent = nil
+
+		if DoR.DependentRiskID != nil {
+			// Process Depends on Risk
+			DepRisk, err := utils.FindRiskByID(*DoR.DependentRiskID, Risks)
+			if err != nil {
+				return false, fmt.Errorf("error finding dependent risk %d: %s", *DoR.DependentRiskID, err.Error())
+			}
+
+			if DepRisk == nil {
+				return false, fmt.Errorf("dependent risk %d not found", *DoR.DependentRiskID)
+			}
+
+			DoRRisk = DepRisk
+		}
+
+		if DoR.DependentEventID != nil {
+			// Process Depends on Event
+			DepEvent, err := utils.FindEventByID(*DoR.DependentEventID, Events)
+
+			if err != nil {
+				return false, fmt.Errorf("error finding dependent event %d: %s", *DoR.DependentEventID, err.Error())
+			}
+
+			if DepEvent == nil {
+				return false, fmt.Errorf("dependent event %d not found", *DoR.DependentEventID)
+			}
+
+			DoREvent = DepEvent
+		}
+
+		if DoREvent == nil && DoRRisk == nil {
+			return false, fmt.Errorf("DependsOnRisk has no DependentEvent or DependentRisk")
+		}
+
+		if DoREvent != nil {
+			if !DoREvent.Independent {
+				dID := DoREvent.DependentEventID
+				dValue := DoREvent.Event.AssociatedProbability.SingleNumber
+				dRange := DoREvent.Event.AssociatedProbability.Range
+				dDecomp := DoREvent.Event.AssociatedProbability.Decomposed
+
+				if dID == nil {
+					return false, fmt.Errorf("Dependent Event has no ID")
+				}
+
+				if dValue == nil && dRange == nil && dDecomp == nil {
+					return false, fmt.Errorf("dependent event %d has no dependency value, range, or decomposed", DoREvent.Event.ID)
+				}
+
+				dEvent, err := utils.FindEventByID(*dID, Events)
+				if err != nil {
+					return false, fmt.Errorf("dependent event %d not found", *dID)
+
+				}
+
+				if dEvent == nil || dEvent.Event == nil {
+					return false, fmt.Errorf("dependent event %d is nil", *dID)
+				}
+
+				if dEvent.Event.AssociatedRisk == nil {
+					return false, fmt.Errorf("dependent event %d has no associated risk", *dID)
+				}
+
+				hitormiss, err := DependencyCheck(dEvent, DoREvent.DependencyType, Events, Risks, Mitigations, dValue, dRange, dDecomp)
+				if err != nil {
+					return false, fmt.Errorf("error checking dependency for dependent event %d: %s", DoREvent.Event.ID, err.Error())
+				}
+
+				if !hitormiss {
+					return false, nil // missed dependency
+				}
+			}
+		}
+
+		if DoRRisk != nil {
+			// check if the dependent risk has any dependencies
+			hit, err := CheckRiskDependencies(DoRRisk, Events, Risks, DoR.Type)
+			if err != nil {
+				return false, fmt.Errorf("error checking risk dependencies for dependent risk %d: %s", DoRRisk.ID, err.Error())
+			}
+
+			if !hit {
+				return false, nil // missed dependency
+			}
+		} else {
+
+			switch DType {
+			case types.Exists:
+				// exists means the risk has a non-zero probability and impact
+				if DoREvent.Event.AssociatedProbability == nil {
+					return false, fmt.Errorf("dependent event has no probability to compare with %d", DepEvent.Event.ID)
+				}
+
+				if DoREvent.Event.AssociatedProbability.SingleNumber != nil {
+					base, std, err := simulateSingleNumber(DoREvent.Event.AssociatedProbability.SingleNumber, DoREvent.Event.Timeframe)
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoREvent.Event.ID, err.Error())
+					}
+
+					min := base - std
+					if min <= 0 {
+						return false, nil // missed dependency
+					}
+				} else if DoREvent.Event.AssociatedProbability.Range != nil {
+					base, std, err := simulateRange(DoREvent.Event.AssociatedProbability.Range, DoREvent.Event.Timeframe)
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoREvent.Event.ID, err.Error())
+					}
+
+					min := base - std
+
+					if min <= 0 {
+						return false, nil // missed dependency
+					}
+
+				} else if DoREvent.Event.AssociatedProbability.Decomposed != nil {
+					base, std, err := simulateDecomposedByAttribute(DoREvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute, DoREvent.Event.Timeframe)
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoREvent.Event.ID, err.Error())
+					}
+
+					min := base - std
+
+					if min <= 0 {
+						return false, nil // missed dependency
+					}
+
+				} else {
+					return false, fmt.Errorf("dependent event has no probability to compare with %d", DepEvent.Event.ID)
+				}
+
+				break
+			case types.DoesNotExist:
+				// does not exist means the risk has a zero probability and impact
+				if DoREvent.Event.AssociatedProbability == nil {
+					return false, fmt.Errorf("dependent event has no probability to compare with %d", DepEvent.Event.ID)
+				}
+
+				if DoREvent.Event.AssociatedProbability.SingleNumber != nil {
+					base, std, err := simulateSingleNumber(DoREvent.Event.AssociatedProbability.SingleNumber, DoREvent.Event.Timeframe)
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoREvent.Event.ID, err.Error())
+					}
+
+					max := base + std
+
+					if max > 0 {
+						return false, nil // missed dependency
+					}
+
+				} else if DoREvent.Event.AssociatedProbability.Range != nil {
+					base, std, err := simulateRange(DoREvent.Event.AssociatedProbability.Range, DoREvent.Event.Timeframe)
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoREvent.Event.ID, err.Error())
+					}
+
+					max := base + std
+
+					if max > 0 {
+						return false, nil // missed dependency
+					}
+
+				} else if DoREvent.Event.AssociatedProbability.Decomposed != nil {
+					base, std, err := simulateDecomposedByAttribute(DoREvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute, DoREvent.Event.Timeframe)
+
+					if err != nil {
+						return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoREvent.Event.ID, err.Error())
+					}
+
+					max := base + std
+
+					if max > 0 {
+						return false, nil // missed dependency
+					}
+				} else {
+					return false, fmt.Errorf("dependent event has no probability to compare with %d", DepEvent.Event.ID)
+				}
+
+				break
+			default:
+				return false, fmt.Errorf("invalid dependency type")
+			}
 		}
 	}
 
 	for _, DoM := range DepEvent.Event.DependsOnMitigation {
 		// Process Depends on Mitigation
+		if DoM.DependentEventID == nil && DoM.DependentMitigationOrRiskID == nil {
+			return false, fmt.Errorf("DependsOnMitigation has no DependentEventID or DependentMitigationID")
+		}
+
+		var DoMEvent *utils.FilteredEvent = nil
+		var DoMMitigation *types.Mitigation = nil
+		var DoMRisk *types.Risk = nil
+
+		if DoM.DependentEventID != nil {
+			// Process Depends on Event
+			DepEvent, err := utils.FindEventByID(*DoM.DependentEventID, Events)
+			if err != nil {
+				return false, fmt.Errorf("error finding dependent event %d: %s", *DoM.DependentEventID, err.Error())
+			}
+
+			if DepEvent == nil {
+				return false, fmt.Errorf("dependent event %d not found", *DoM.DependentEventID)
+			}
+
+			DoMEvent = DepEvent
+		}
+
+		if DoM.DependentMitigationOrRiskID != nil {
+			// Process Depends on Mitigation
+			DepMitigation, err := utils.FindMitigationByID(*DoM.DependentMitigationOrRiskID, Mitigations)
+
+			if err != nil {
+				return false, fmt.Errorf("error finding dependent mitigation %d: %s", *DoM.DependentMitigationOrRiskID, err.Error())
+			}
+
+			if DepMitigation == nil {
+				return false, fmt.Errorf("dependent mitigation %d not found", *DoM.DependentMitigationOrRiskID)
+			}
+
+			DoMMitigation = DepMitigation
+		}
+
+		if DoM.DependentMitigationOrRiskID != nil {
+			// Process Depends on Risk
+			DepRisk, err := utils.FindRiskByID(*DoM.DependentMitigationOrRiskID, Risks)
+
+			if err != nil {
+				return false, fmt.Errorf("error finding dependent risk %d: %s", *DoM.DependentMitigationOrRiskID, err.Error())
+			}
+
+			if DepRisk == nil {
+				return false, fmt.Errorf("dependent risk %d not found", *DoM.DependentMitigationOrRiskID)
+			}
+
+			DoMRisk = DepRisk
+		}
+
+		if DoMEvent == nil && DoMMitigation == nil && DoMRisk == nil {
+			return false, fmt.Errorf("DependsOnMitigation has no DependentEvent, DependentMitigation, or DependentRisk")
+		}
+
+		if DoMEvent != nil {
+			// check if the dependent event has any dependencies
+
+			hit, err := DependencyCheck(DoMEvent, DoM.Type, Events, Risks, Mitigations, DoMEvent.Event.AssociatedProbability.SingleNumber, DoMEvent.Event.AssociatedProbability.Range, DoMEvent.Event.AssociatedProbability.Decomposed)
+			if err != nil {
+				return false, fmt.Errorf("error checking event dependencies for dependent event %d: %s", DoMEvent.Event.ID, err.Error())
+			}
+
+			if !hit {
+				return false, nil // missed dependency
+			}
+		}
+
+		if DoMMitigation != nil {
+			// check if the dependent mitigation has any dependencies
+
+			hit, err := CheckMitigationDependencies(DoMMitigation, Events, Risks, Mitigations, DoM.Type)
+			if err != nil {
+				return false, fmt.Errorf("error checking mitigation dependencies for dependent mitigation %d: %s", DoMMitigation.ID, err.Error())
+			}
+
+			if !hit {
+				return false, nil // missed dependency
+			}
+		}
+
+		if DoMRisk != nil {
+			// check if the dependent risk has any dependencies
+
+			hit, err := CheckRiskDependencies(DoMRisk, Events, Risks, DoM.Type)
+			if err != nil {
+				return false, fmt.Errorf("error checking risk dependencies for dependent risk %d: %s", DoMRisk.ID, err.Error())
+			}
+
+			if !hit {
+				return false, nil // missed dependency
+			}
+		}
+
 		switch DType {
 		case types.Exists:
 			// exists means the mitigation has a non-zero probability, impact, and cost
+			if DoMEvent.Event.AssociatedProbability == nil {
+				return false, fmt.Errorf("dependent event has no probability to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoMEvent.Event.AssociatedProbability.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoMEvent.Event.AssociatedProbability.SingleNumber, DoMEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoMEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				if min <= 0 {
+					return false, nil // missed dependency
+				}
+			} else if DoMEvent.Event.AssociatedProbability.Range != nil {
+				base, std, err := simulateRange(DoMEvent.Event.AssociatedProbability.Range, DoMEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoMEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				if min <= 0 {
+					return false, nil // missed dependency
+				}
+
+			} else if DoMEvent.Event.AssociatedProbability.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoMEvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute, DoMEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoMEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				if min <= 0 {
+					return false, nil // missed dependency
+				}
+			} else {
+				return false, fmt.Errorf("dependent event has no probability to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.DoesNotExist:
 			// does not exist means the mitigation has a zero probability, impact, and cost
+			if DoMEvent.Event.AssociatedProbability == nil {
+				return false, fmt.Errorf("dependent event has no probability to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoMEvent.Event.AssociatedProbability.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoMEvent.Event.AssociatedProbability.SingleNumber, DoMEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoMEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				if max > 0 {
+					return false, nil // missed dependency
+				}
+
+			} else if DoMEvent.Event.AssociatedProbability.Range != nil {
+				base, std, err := simulateRange(DoMEvent.Event.AssociatedProbability.Range, DoMEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoMEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				if max > 0 {
+					return false, nil // missed dependency
+				}
+			} else if DoMEvent.Event.AssociatedProbability.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoMEvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute, DoMEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoMEvent.Event.ID, err.Error())
+				}
+
+				max := base + std
+
+				if max > 0 {
+					return false, nil // missed dependency
+				}
+			} else {
+				return false, fmt.Errorf("dependent event has no probability to compare with %d", DepEvent.Event.ID)
+			}
 			break
 		default:
 			return false, fmt.Errorf("invalid dependency type")
 		}
 	}
 
+	// if none of the dependencies are missed, then the event's dependencies are satisfied
 	return true, nil
 }

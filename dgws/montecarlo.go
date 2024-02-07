@@ -44,10 +44,14 @@ func (m *MonteCarlo) Simulate() ([]*types.SimulationResults, error) {
 	}
 
 	// 3. simulate all the dependent events and store the results
-	_ = IndependentResults
+	DependentResults, err := SimulateDependentEvents(DependentEvents, m.Risks, m.Mitigations, m.Iterations)
+	if err != nil {
+		return nil, fmt.Errorf("Error simulating dependent events: %s", err)
+	}
 
 	// 4. combine the results of the independent and dependent events
+	AllResults := append(IndependentResults, DependentResults...)
 
 	// 5. return the results
-	return nil, nil
+	return AllResults, nil
 }

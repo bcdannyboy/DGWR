@@ -175,7 +175,6 @@ func isIndependentEvent(event *types.Event) bool {
 		len(event.DependsOnMitigation) == 0
 }
 
-// FindEventByID finds an event by its ID from a slice of FilteredEvent.
 func FindEventByID(id uint64, events []*FilteredEvent) (*FilteredEvent, error) {
 	for _, event := range events {
 		if event.ID == id {
@@ -185,11 +184,20 @@ func FindEventByID(id uint64, events []*FilteredEvent) (*FilteredEvent, error) {
 	return nil, errors.New("event not found")
 }
 
-func EventInResults(eid uint64, results []*types.SimulationResults) *types.SimulationResults {
-	for _, result := range results {
-		if result.EventID == eid {
-			return result
+func FindRiskByID(id uint64, risks []*types.Risk) (*types.Risk, error) {
+	for _, risk := range risks {
+		if risk.ID == id {
+			return risk, nil
 		}
 	}
-	return nil
+	return nil, errors.New("risk not found")
+}
+
+func FindMitigationByID(id uint64, mitigations []*types.Mitigation) (*types.Mitigation, error) {
+	for _, mitigation := range mitigations {
+		if mitigation.ID == id {
+			return mitigation, nil
+		}
+	}
+	return nil, errors.New("mitigation not found")
 }
