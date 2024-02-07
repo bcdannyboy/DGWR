@@ -7,16 +7,6 @@ func eventExists(eventID uint64, EventMap map[uint64]*types.Event) bool {
 	return exists
 }
 
-func riskExists(riskID uint64, RiskMap map[uint64]*types.Risk) bool {
-	_, exists := RiskMap[riskID]
-	return exists
-}
-
-func mitigationExists(mitigationID uint64, MitigationMap map[uint64]*types.Mitigation) bool {
-	_, exists := MitigationMap[mitigationID]
-	return exists
-}
-
 func appendBadEvent(event *types.Event, errMsg string, BadEvents *[]*types.BadEvent) {
 	*BadEvents = append(*BadEvents, &types.BadEvent{
 		Event: event,
