@@ -357,9 +357,6 @@ func SimulateDependentEvents(Events []*utils.FilteredEvent, Risks []*types.Risk,
 	for _, event := range Events {
 		if !event.Independent { // we're only interested in dependent events
 
-			expectedValue := event.DependencyValue
-			expectedRange := event.DependencyRange
-			expectedDecomp := event.DependencyDecomp
 			dType := event.DependencyType
 			dID := event.DependentEventID
 
@@ -370,7 +367,7 @@ func SimulateDependentEvents(Events []*utils.FilteredEvent, Risks []*types.Risk,
 
 			for i := 0; i < iterations; i++ {
 				// check for dependencies until all are met or at least one is missed
-				depMet, err := simulator.DependencyCheck(dEvent, dType, Events, Risks, Mitigations, expectedValue, expectedRange, expectedDecomp)
+				depMet, err := simulator.DependencyCheck(dEvent, dType, Events, Risks, Mitigations)
 				if err != nil {
 					return nil, fmt.Errorf("failed to check dependencies for event %v: %s", event.ID, err.Error())
 				}

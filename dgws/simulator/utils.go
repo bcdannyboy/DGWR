@@ -8,7 +8,7 @@ import (
 	"github.com/bcdannyboy/montecargo/dgws/utils"
 )
 
-func simulateDecomposedByAttribute(decomposed *types.Decomposed, attribute int, timeFrame uint64) (float64, float64, error) {
+func simulateDecomposedByAttribute(decomposed *types.Decomposed, attribute int) (float64, float64, error) {
 	if decomposed == nil {
 		return 0, 0, errors.New("decomposed is nil")
 	}
@@ -407,7 +407,7 @@ func SimulateIndependentEvent(event *utils.FilteredEvent) (*types.SimulationResu
 	return results, nil
 }
 
-func CheckRiskDependencies(risk *types.Risk, events []*utils.FilteredEvent, risks []*types.Risk, dependenciesType uint64) (bool, error) {
+func CheckRiskDependencies(risk *types.Risk, events []*utils.FilteredEvent, risks []*types.Risk, mitigations []*types.Mitigation, dependenciesType uint64) (bool, error) {
 
 	for _, riskDep := range risk.DependsOnRisk {
 		if riskDep.DependentRiskID == nil {
@@ -426,7 +426,7 @@ func CheckRiskDependencies(risk *types.Risk, events []*utils.FilteredEvent, risk
 			return false, fmt.Errorf("dependent risk %d not found", *riskDep.DependentRiskID)
 		}
 
-		hit, err := CheckRiskDependencies(depRisk, events, risks, riskDep.Type)
+		hit, err := CheckRiskDependencies(depRisk, events, risks, mitigations, riskDep.Type)
 		if err != nil || !hit {
 			return false, err
 		}
@@ -441,7 +441,7 @@ func CheckRiskDependencies(risk *types.Risk, events []*utils.FilteredEvent, risk
 			return false, fmt.Errorf("dependent event %d not found", eventDep.DependentEventID)
 		}
 
-		hit, err := DependencyCheck(depEvent, dependenciesType, events, risks, nil, nil, nil, nil)
+		hit, err := DependencyCheck(depEvent, dependenciesType, events, risks, mitigations)
 		if err != nil || !hit {
 			return false, err
 		}
@@ -537,7 +537,7 @@ func CheckMitigationDependencies(mitigation *types.Mitigation, events []*utils.F
 			return false, fmt.Errorf("dependent event %d not found", eventDep.DependentEventID)
 		}
 
-		hit, err := DependencyCheck(depEvent, dependenciesType, events, risks, nil, nil, nil, nil)
+		hit, err := DependencyCheck(depEvent, dependenciesType, events, risks, mitigations)
 		if err != nil || !hit {
 			return false, err
 		}
@@ -558,7 +558,7 @@ func CheckMitigationDependencies(mitigation *types.Mitigation, events []*utils.F
 		}
 
 		// Assuming risks can be evaluated similarly to events
-		hit, err := CheckRiskDependencies(depRisk, events, risks, riskDep.Type)
+		hit, err := CheckRiskDependencies(depRisk, events, risks, mitigations, riskDep.Type)
 		if err != nil || !hit {
 			return false, err
 		}
