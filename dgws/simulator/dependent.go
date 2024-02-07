@@ -5512,7 +5512,7 @@ func DependencyCheck(
 				}
 
 			} else if DoCEvent.Event.AssociatedCost.Decomposed != nil {
-				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute)
 
 				if err != nil {
 					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
@@ -5683,7 +5683,7 @@ func DependencyCheck(
 				}
 
 			} else if DoCEvent.Event.AssociatedCost.Decomposed != nil {
-				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute)
 
 				if err != nil {
 					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
@@ -5853,7 +5853,7 @@ func DependencyCheck(
 				}
 
 			} else if DoCEvent.Event.AssociatedCost.Decomposed != nil {
-				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute)
 
 				if err != nil {
 					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
@@ -6024,7 +6024,7 @@ func DependencyCheck(
 				}
 
 			} else if DoCEvent.Event.AssociatedCost.Decomposed != nil {
-				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute, DoCEvent.Event.Timeframe)
+				base, std, err := simulateDecomposedByAttribute(DoCEvent.Event.AssociatedCost.Decomposed, CostAttribute)
 
 				if err != nil {
 					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoCEvent.Event.ID, err.Error())
@@ -6154,7 +6154,7 @@ func DependencyCheck(
 					return false, fmt.Errorf("dependent event %d has no associated risk", *dID)
 				}
 
-				hitormiss, err := DependencyCheck(dEvent, DoREvent.DependencyType, Events, Risks, Mitigations, dValue, dRange, dDecomp)
+				hitormiss, err := DependencyCheck(dEvent, DoREvent.DependencyType, Events, Risks, Mitigations)
 				if err != nil {
 					return false, fmt.Errorf("error checking dependency for dependent event %d: %s", DoREvent.Event.ID, err.Error())
 				}
@@ -6167,7 +6167,7 @@ func DependencyCheck(
 
 		if DoRRisk != nil {
 			// check if the dependent risk has any dependencies
-			hit, err := CheckRiskDependencies(DoRRisk, Events, Risks, DoR.Type)
+			hit, err := CheckRiskDependencies(DoRRisk, Events, Risks, Mitigations, DoR.Type)
 			if err != nil {
 				return false, fmt.Errorf("error checking risk dependencies for dependent risk %d: %s", DoRRisk.ID, err.Error())
 			}
@@ -6209,7 +6209,7 @@ func DependencyCheck(
 					}
 
 				} else if DoREvent.Event.AssociatedProbability.Decomposed != nil {
-					base, std, err := simulateDecomposedByAttribute(DoREvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute, DoREvent.Event.Timeframe)
+					base, std, err := simulateDecomposedByAttribute(DoREvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute)
 
 					if err != nil {
 						return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoREvent.Event.ID, err.Error())
@@ -6259,7 +6259,7 @@ func DependencyCheck(
 					}
 
 				} else if DoREvent.Event.AssociatedProbability.Decomposed != nil {
-					base, std, err := simulateDecomposedByAttribute(DoREvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute, DoREvent.Event.Timeframe)
+					base, std, err := simulateDecomposedByAttribute(DoREvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute)
 
 					if err != nil {
 						return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoREvent.Event.ID, err.Error())
@@ -6342,7 +6342,7 @@ func DependencyCheck(
 		if DoMEvent != nil {
 			// check if the dependent event has any dependencies
 
-			hit, err := DependencyCheck(DoMEvent, DoM.Type, Events, Risks, Mitigations, DoMEvent.Event.AssociatedProbability.SingleNumber, DoMEvent.Event.AssociatedProbability.Range, DoMEvent.Event.AssociatedProbability.Decomposed)
+			hit, err := DependencyCheck(DoMEvent, DoM.Type, Events, Risks, Mitigations)
 			if err != nil {
 				return false, fmt.Errorf("error checking event dependencies for dependent event %d: %s", DoMEvent.Event.ID, err.Error())
 			}
@@ -6368,7 +6368,7 @@ func DependencyCheck(
 		if DoMRisk != nil {
 			// check if the dependent risk has any dependencies
 
-			hit, err := CheckRiskDependencies(DoMRisk, Events, Risks, DoM.Type)
+			hit, err := CheckRiskDependencies(DoMRisk, Events, Risks, Mitigations, DoM.Type)
 			if err != nil {
 				return false, fmt.Errorf("error checking risk dependencies for dependent risk %d: %s", DoMRisk.ID, err.Error())
 			}
@@ -6411,7 +6411,7 @@ func DependencyCheck(
 				}
 
 			} else if DoMEvent.Event.AssociatedProbability.Decomposed != nil {
-				base, std, err := simulateDecomposedByAttribute(DoMEvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute, DoMEvent.Event.Timeframe)
+				base, std, err := simulateDecomposedByAttribute(DoMEvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute)
 
 				if err != nil {
 					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoMEvent.Event.ID, err.Error())
@@ -6459,7 +6459,7 @@ func DependencyCheck(
 					return false, nil // missed dependency
 				}
 			} else if DoMEvent.Event.AssociatedProbability.Decomposed != nil {
-				base, std, err := simulateDecomposedByAttribute(DoMEvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute, DoMEvent.Event.Timeframe)
+				base, std, err := simulateDecomposedByAttribute(DoMEvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute)
 
 				if err != nil {
 					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoMEvent.Event.ID, err.Error())
