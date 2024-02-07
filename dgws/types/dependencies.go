@@ -55,19 +55,3 @@ type CostDependency struct {
 	Range                       *Range        `json:"range,omitempty"`
 	Decomposed                  *Decomposed   `json:"decomposed,omitempty"`
 }
-
-type RiskDependency struct {
-	Name             string  `json:"name,omitempty"`
-	Description      string  `json:"description,omitempty"`
-	Type             uint64  `json:"type"`  // exists, does not exist
-	DependentRiskID  *uint64 `json:"value"` // hash of the risk that this risk depends on
-	DependentEventID *uint64 `json:"dependent_event_id,omitempty"`
-}
-
-type MitigationDependency struct {
-	Name                        string  `json:"name,omitempty"`
-	Description                 string  `json:"description,omitempty"`
-	Type                        uint64  `json:"type"`  // exists, does not exist
-	DependentMitigationOrRiskID *uint64 `json:"value"` // hash of the mitigation or risk that this mitigation depends on
-	DependentEventID            *uint64 `json:"dependent_event_id,omitempty"`
-}

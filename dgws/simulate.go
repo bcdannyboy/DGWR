@@ -15,87 +15,7 @@ func SimulateIndependentEvents(Events []*utils.FilteredEvent, iterations int) ([
 		for i := 0; i < iterations; i++ {
 			// probability
 			if event.Event.AssociatedProbability == nil {
-				if event.Event.AssociatedRisk != nil {
-					// associated risk probability
-					if event.Event.AssociatedRisk.Probability != nil {
-						if event.Event.AssociatedRisk.Probability.SingleNumber != nil {
-							// associated risk single number probability
-							associatedRiskProbability, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedRisk.Probability.SingleNumber, event.Event.Timeframe)
-							if err != nil {
-								return nil, err
-							}
-
-							SimulationResults = append(SimulationResults, &types.SimulationResults{
-								EventID:     event.ID,
-								Probability: *associatedRiskProbability,
-							})
-
-						} else if event.Event.AssociatedRisk.Probability.Range != nil {
-							// associated risk range probability
-							associatedRiskProbability, err := simulator.SimulateIndependentRange(event.Event.AssociatedRisk.Probability.Range, event.Event.Timeframe)
-							if err != nil {
-								return nil, err
-							}
-
-							SimulationResults = append(SimulationResults, &types.SimulationResults{
-								EventID:     event.ID,
-								Probability: *associatedRiskProbability,
-							})
-
-						} else if event.Event.AssociatedRisk.Probability.Decomposed != nil {
-							// associated risk decomposed probability
-							associatedRiskProbability, associatedRiskProbabilityStandardDeviation, _, _, _, _, err := simulator.SimulateIndependentDecomposed(event.Event.AssociatedRisk.Probability.Decomposed)
-							if err != nil {
-								return nil, err
-							}
-
-							SimulationResults = append(SimulationResults, &types.SimulationResults{
-								EventID:                      event.ID,
-								Probability:                  associatedRiskProbability,
-								ProbabilityStandardDeviation: associatedRiskProbabilityStandardDeviation,
-							})
-						}
-					}
-				} else if event.Event.AssociatedMitigation != nil {
-					// associated mitigation probability
-					if event.Event.AssociatedMitigation.Probability != nil {
-						if event.Event.AssociatedMitigation.Probability.SingleNumber != nil {
-							// associated mitigation single number probability
-							associatedMitigationProbability, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedMitigation.Probability.SingleNumber, event.Event.Timeframe)
-							if err != nil {
-								return nil, err
-							}
-
-							SimulationResults = append(SimulationResults, &types.SimulationResults{
-								EventID:     event.ID,
-								Probability: *associatedMitigationProbability,
-							})
-						} else if event.Event.AssociatedMitigation.Probability.Range != nil {
-							// associated mitigation range probability
-							associatedMitigationProbability, err := simulator.SimulateIndependentRange(event.Event.AssociatedMitigation.Probability.Range, event.Event.Timeframe)
-							if err != nil {
-								return nil, err
-							}
-
-							SimulationResults = append(SimulationResults, &types.SimulationResults{
-								EventID:     event.ID,
-								Probability: *associatedMitigationProbability,
-							})
-						} else if event.Event.AssociatedMitigation.Probability.Decomposed != nil {
-							// associated mitigation decomposed probability
-							associatedMitigationProbability, associatedMitigationProbabilityStandardDeviation, _, _, _, _, err := simulator.SimulateIndependentDecomposed(event.Event.AssociatedMitigation.Probability.Decomposed)
-							if err != nil {
-								return nil, err
-							}
-
-							SimulationResults = append(SimulationResults, &types.SimulationResults{
-								EventID:                      event.ID,
-								Probability:                  associatedMitigationProbability,
-								ProbabilityStandardDeviation: associatedMitigationProbabilityStandardDeviation,
-							})
-						}
-					}
-				}
+				return nil, fmt.Errorf("event %v has no associated probability", event.ID)
 			} else {
 				// default probability item
 				if event.Event.AssociatedProbability.SingleNumber != nil {
@@ -137,91 +57,7 @@ func SimulateIndependentEvents(Events []*utils.FilteredEvent, iterations int) ([
 
 			// impact
 			if event.Event.AssociatedImpact == nil {
-				if event.Event.AssociatedRisk != nil {
-					if event.Event.AssociatedRisk.Impact != nil {
-						// associated risk impact
-						if event.Event.AssociatedRisk.Impact.SingleNumber != nil {
-							// associated risk single number impact
-							associatedRiskImpact, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedRisk.Impact.SingleNumber, event.Event.Timeframe)
-							if err != nil {
-								return nil, err
-							}
-
-							SimulationResults = append(SimulationResults, &types.SimulationResults{
-								EventID:      event.ID,
-								Impact:       *associatedRiskImpact,
-								IsCostSaving: event.Event.AssociatedRisk.Impact.IsCostSaving,
-							})
-						} else if event.Event.AssociatedRisk.Impact.Range != nil {
-							// associated risk range impact
-							associatedImpact, err := simulator.SimulateIndependentRange(event.Event.AssociatedRisk.Impact.Range, event.Event.Timeframe)
-							if err != nil {
-								return nil, err
-							}
-
-							SimulationResults = append(SimulationResults, &types.SimulationResults{
-								EventID:      event.ID,
-								Impact:       *associatedImpact,
-								IsCostSaving: event.Event.AssociatedRisk.Impact.IsCostSaving,
-							})
-						} else if event.Event.AssociatedRisk.Impact.Decomposed != nil {
-							// associated risk decomposed impact
-							associatedImpact, associatedImpactStandardDeviation, _, _, _, _, err := simulator.SimulateIndependentDecomposed(event.Event.AssociatedRisk.Impact.Decomposed)
-							if err != nil {
-								return nil, err
-							}
-
-							SimulationResults = append(SimulationResults, &types.SimulationResults{
-								EventID:                 event.ID,
-								Impact:                  associatedImpact,
-								ImpactStandardDeviation: associatedImpactStandardDeviation,
-								IsCostSaving:            event.Event.AssociatedRisk.Impact.IsCostSaving,
-							})
-						}
-					} else if event.Event.AssociatedMitigation != nil {
-						if event.Event.AssociatedMitigation.Impact != nil {
-							// associated mitigation impact
-							if event.Event.AssociatedMitigation.Impact.SingleNumber != nil {
-								// associated mitigation single number impact
-								associatedMitigationImpact, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedMitigation.Impact.SingleNumber, event.Event.Timeframe)
-								if err != nil {
-									return nil, err
-								}
-
-								SimulationResults = append(SimulationResults, &types.SimulationResults{
-									EventID:      event.ID,
-									Impact:       *associatedMitigationImpact,
-									IsCostSaving: event.Event.AssociatedMitigation.Impact.IsCostSaving,
-								})
-							} else if event.Event.AssociatedMitigation.Impact.Range != nil {
-								// associated mitigation range impact
-								associatedMitigationImpact, err := simulator.SimulateIndependentRange(event.Event.AssociatedMitigation.Impact.Range, event.Event.Timeframe)
-								if err != nil {
-									return nil, err
-								}
-
-								SimulationResults = append(SimulationResults, &types.SimulationResults{
-									EventID:      event.ID,
-									Impact:       *associatedMitigationImpact,
-									IsCostSaving: event.Event.AssociatedMitigation.Impact.IsCostSaving,
-								})
-							} else if event.Event.AssociatedMitigation.Impact.Decomposed != nil {
-								// associated mitigation decomposed impact
-								associatedMitigationImpact, associatedMitigationImpactStandardDeviation, _, _, _, _, err := simulator.SimulateIndependentDecomposed(event.Event.AssociatedMitigation.Impact.Decomposed)
-								if err != nil {
-									return nil, err
-								}
-
-								SimulationResults = append(SimulationResults, &types.SimulationResults{
-									EventID:                 event.ID,
-									Impact:                  associatedMitigationImpact,
-									ImpactStandardDeviation: associatedMitigationImpactStandardDeviation,
-									IsCostSaving:            event.Event.AssociatedMitigation.Impact.IsCostSaving,
-								})
-							}
-						}
-					}
-				}
+				return nil, fmt.Errorf("event %v has no associated impact", event.ID)
 			} else {
 				// default impact item
 				if event.Event.AssociatedImpact.SingleNumber != nil {
@@ -266,46 +102,7 @@ func SimulateIndependentEvents(Events []*utils.FilteredEvent, iterations int) ([
 
 			// cost
 			if event.Event.AssociatedCost == nil {
-				if event.Event.AssociatedMitigation != nil {
-					if event.Event.AssociatedMitigation.AssociatedCost != nil {
-						// associated mitigation cost
-						if event.Event.AssociatedMitigation.AssociatedCost.SingleNumber != nil {
-							// associated mitigation single number cost
-							associatedMitigationCost, err := simulator.SimulateIndependentSingleNumer(event.Event.AssociatedMitigation.AssociatedCost.SingleNumber, event.Event.Timeframe)
-							if err != nil {
-								return nil, err
-							}
-
-							SimulationResults = append(SimulationResults, &types.SimulationResults{
-								EventID: event.ID,
-								Cost:    *associatedMitigationCost,
-							})
-						} else if event.Event.AssociatedMitigation.AssociatedCost.Range != nil {
-							// associated mitigation range cost
-							associatedMitigationRangeCost, err := simulator.SimulateIndependentRange(event.Event.AssociatedMitigation.AssociatedCost.Range, event.Event.Timeframe)
-							if err != nil {
-								return nil, err
-							}
-
-							SimulationResults = append(SimulationResults, &types.SimulationResults{
-								EventID: event.ID,
-								Cost:    *associatedMitigationRangeCost,
-							})
-						} else if event.Event.AssociatedMitigation.AssociatedCost.Decomposed != nil {
-							// associated mitigation decomposed cost
-							associatedMitigationCost, associatedMitigationCostStandardDeviation, _, _, _, _, err := simulator.SimulateIndependentDecomposed(event.Event.AssociatedMitigation.AssociatedCost.Decomposed)
-							if err != nil {
-								return nil, err
-							}
-
-							SimulationResults = append(SimulationResults, &types.SimulationResults{
-								EventID:               event.ID,
-								Cost:                  associatedMitigationCost,
-								CostStandardDeviation: associatedMitigationCostStandardDeviation,
-							})
-						}
-					}
-				}
+				return nil, fmt.Errorf("event %v has no associated cost", event.ID)
 			} else {
 				// default cost item
 				if event.Event.AssociatedCost.SingleNumber != nil {
@@ -351,7 +148,7 @@ func SimulateIndependentEvents(Events []*utils.FilteredEvent, iterations int) ([
 	return SimulationResults, nil
 }
 
-func SimulateDependentEvents(Events []*utils.FilteredEvent, Risks []*types.Risk, Mitigations []*types.Mitigation, iterations int) ([]*types.SimulationResults, error) {
+func SimulateDependentEvents(Events []*utils.FilteredEvent, iterations int) ([]*types.SimulationResults, error) {
 	SimulationResults := []*types.SimulationResults{}
 
 	for _, event := range Events {
@@ -367,7 +164,7 @@ func SimulateDependentEvents(Events []*utils.FilteredEvent, Risks []*types.Risk,
 
 			for i := 0; i < iterations; i++ {
 				// check for dependencies until all are met or at least one is missed
-				depMet, err := simulator.DependencyCheck(dEvent, dType, Events, Risks, Mitigations)
+				depMet, err := simulator.DependencyCheck(dEvent, dType, Events)
 				if err != nil {
 					return nil, fmt.Errorf("failed to check dependencies for event %v: %s", event.ID, err.Error())
 				}

@@ -18,24 +18,14 @@ type FilteredEvent struct {
 }
 
 // FilterDependencies filters out dependent events from the list of events
-func FilterDependencies(Events []*types.Event, Risks []*types.Risk, Mitigations []*types.Mitigation) ([]*FilteredEvent, []*types.BadEvent) {
+func FilterDependencies(Events []*types.Event) ([]*FilteredEvent, []*types.BadEvent) {
 	EventMap := make(map[uint64]*types.Event)
-	RiskMap := make(map[uint64]*types.Risk)
-	MitigationMap := make(map[uint64]*types.Mitigation)
 
 	BadEvents := []*types.BadEvent{}
 	FilteredEvents := []*FilteredEvent{}
 
 	for _, event := range Events {
 		EventMap[event.ID] = event
-	}
-
-	for _, risk := range Risks {
-		RiskMap[risk.ID] = risk
-	}
-
-	for _, mitigation := range Mitigations {
-		MitigationMap[mitigation.ID] = mitigation
 	}
 
 	for eventKey, event := range EventMap {
@@ -51,9 +41,7 @@ func FilterDependencies(Events []*types.Event, Risks []*types.Risk, Mitigations 
 		processEventDependencies(event, eventKey, EventMap, &FilteredEvents, &BadEvents)
 		processProbabilityDependencies(event, eventKey, EventMap, &FilteredEvents, &BadEvents)
 		processImpactDependencies(event, eventKey, EventMap, &FilteredEvents, &BadEvents)
-		processCostDependencies(event, eventKey, EventMap, MitigationMap, &FilteredEvents, &BadEvents)
-		processRiskDependencies(event, eventKey, EventMap, RiskMap, &FilteredEvents, &BadEvents)
-		processMitigationDependencies(event, eventKey, EventMap, MitigationMap, &FilteredEvents, &BadEvents)
+		processCostDependencies(event, eventKey, EventMap, &FilteredEvents, &BadEvents)
 	}
 
 	return FilteredEvents, BadEvents
@@ -111,15 +99,10 @@ func processImpactDependencies(event *types.Event, eventKey uint64, EventMap map
 	}
 }
 
-func processCostDependencies(event *types.Event, eventKey uint64, EventMap map[uint64]*types.Event, MitigationMap map[uint64]*types.Mitigation, FilteredEvents *[]*FilteredEvent, BadEvents *[]*types.BadEvent) {
+func processCostDependencies(event *types.Event, eventKey uint64, EventMap map[uint64]*types.Event, FilteredEvents *[]*FilteredEvent, BadEvents *[]*types.BadEvent) {
 	for _, dep := range event.DependsOnCost {
 		if dep.DependentEventID != nil && !eventExists(*dep.DependentEventID, EventMap) {
 			appendBadEvent(event, "Dependent event in cost does not exist", BadEvents)
-			continue
-		}
-
-		if dep.DependentMitigationOrRiskID != nil && !mitigationExists(*dep.DependentMitigationOrRiskID, MitigationMap) {
-			appendBadEvent(event, "Dependent mitigation or risk in cost does not exist", BadEvents)
 			continue
 		}
 
@@ -132,47 +115,11 @@ func processCostDependencies(event *types.Event, eventKey uint64, EventMap map[u
 	}
 }
 
-func processRiskDependencies(event *types.Event, eventKey uint64, EventMap map[uint64]*types.Event, RiskMap map[uint64]*types.Risk, FilteredEvents *[]*FilteredEvent, BadEvents *[]*types.BadEvent) {
-	for _, dep := range event.DependsOnRisk {
-		if dep.DependentRiskID != nil && !riskExists(*dep.DependentRiskID, RiskMap) {
-			appendBadEvent(event, "Dependent risk does not exist", BadEvents)
-			continue
-		}
-
-		if dep.DependentEventID != nil && !eventExists(*dep.DependentEventID, EventMap) {
-			appendBadEvent(event, "Dependent event in risk does not exist", BadEvents)
-			continue
-		}
-
-		fe := createFilteredEvent(eventKey, event, dep.Type, dep.DependentEventID)
-		*FilteredEvents = append(*FilteredEvents, fe)
-	}
-}
-
-func processMitigationDependencies(event *types.Event, eventKey uint64, EventMap map[uint64]*types.Event, MitigationMap map[uint64]*types.Mitigation, FilteredEvents *[]*FilteredEvent, BadEvents *[]*types.BadEvent) {
-	for _, dep := range event.DependsOnMitigation {
-		if dep.DependentMitigationOrRiskID != nil && !mitigationExists(*dep.DependentMitigationOrRiskID, MitigationMap) {
-			appendBadEvent(event, "Dependent mitigation or risk does not exist", BadEvents)
-			continue
-		}
-
-		if dep.DependentEventID != nil && !eventExists(*dep.DependentEventID, EventMap) {
-			appendBadEvent(event, "Dependent event in mitigation does not exist", BadEvents)
-			continue
-		}
-
-		fe := createFilteredEvent(eventKey, event, dep.Type, dep.DependentEventID)
-		*FilteredEvents = append(*FilteredEvents, fe)
-	}
-}
-
 func isIndependentEvent(event *types.Event) bool {
 	return len(event.DependsOnEvent) == 0 &&
 		len(event.DependsOnProbability) == 0 &&
 		len(event.DependsOnImpact) == 0 &&
-		len(event.DependsOnRisk) == 0 &&
-		len(event.DependsOnCost) == 0 &&
-		len(event.DependsOnMitigation) == 0
+		len(event.DependsOnCost) == 0
 }
 
 func FindEventByID(id uint64, events []*FilteredEvent) (*FilteredEvent, error) {
@@ -182,22 +129,4 @@ func FindEventByID(id uint64, events []*FilteredEvent) (*FilteredEvent, error) {
 		}
 	}
 	return nil, errors.New("event not found")
-}
-
-func FindRiskByID(id uint64, risks []*types.Risk) (*types.Risk, error) {
-	for _, risk := range risks {
-		if risk.ID == id {
-			return risk, nil
-		}
-	}
-	return nil, errors.New("risk not found")
-}
-
-func FindMitigationByID(id uint64, mitigations []*types.Mitigation) (*types.Mitigation, error) {
-	for _, mitigation := range mitigations {
-		if mitigation.ID == id {
-			return mitigation, nil
-		}
-	}
-	return nil, errors.New("mitigation not found")
 }

@@ -9,17 +9,15 @@ import (
 )
 
 type MonteCarlo struct {
-	Iterations  int                 `json:"iterations"`
-	Events      []*types.Event      `json:"events"`
-	Risks       []*types.Risk       `json:"risks"`
-	Mitigations []*types.Mitigation `json:"mitigations"`
+	Iterations int            `json:"iterations"`
+	Events     []*types.Event `json:"events"`
 }
 
 func (m *MonteCarlo) Simulate() ([]*types.SimulationResults, error) {
 	fmt.Printf("Simulating %d iterations with %d events\n", m.Iterations, len(m.Events))
 
 	// 1. filter out dependent and independent events
-	filteredEvents, badEvents := utils.FilterDependencies(m.Events, m.Risks, m.Mitigations)
+	filteredEvents, badEvents := utils.FilterDependencies(m.Events)
 	if len(badEvents) > 0 {
 		fmt.Printf("Found %d bad events\n", len(badEvents))
 	}
@@ -44,7 +42,7 @@ func (m *MonteCarlo) Simulate() ([]*types.SimulationResults, error) {
 	}
 
 	// 3. simulate all the dependent events and store the results
-	DependentResults, err := SimulateDependentEvents(DependentEvents, m.Risks, m.Mitigations, m.Iterations)
+	DependentResults, err := SimulateDependentEvents(DependentEvents, m.Iterations)
 	if err != nil {
 		return nil, fmt.Errorf("Error simulating dependent events: %s", err)
 	}
