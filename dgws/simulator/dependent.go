@@ -18,7 +18,7 @@ func DependencyCheck(DepEvent *utils.FilteredEvent, DType uint64, Events []*util
 	for _, DoE := range DepEvent.Event.DependsOnEvent {
 		DoEvent, err := utils.FindEventByID(DoE.DependentEventID, Events)
 		if err != nil {
-			return false, fmt.Errorf("dependent event %d not found", DoE.DependentEventID)
+			return false, fmt.Errorf("dependent event %d not found line 21: %s", DoE.DependentEventID, err.Error())
 		}
 
 		if DoEvent == nil || DoEvent.Event == nil {
@@ -42,7 +42,7 @@ func DependencyCheck(DepEvent *utils.FilteredEvent, DType uint64, Events []*util
 
 			dEvent, err := utils.FindEventByID(*dID, Events)
 			if err != nil {
-				return false, fmt.Errorf("dependent event %d not found", *dID)
+				return false, fmt.Errorf("dependent event %d not found line 45", *dID)
 			}
 
 			if dEvent == nil || dEvent.Event == nil {
@@ -63,11 +63,91 @@ func DependencyCheck(DepEvent *utils.FilteredEvent, DType uint64, Events []*util
 		switch DType {
 		case types.Happens:
 			// happens means a non-zero probability for the event or its associated risk / mitigation if no event probability is provided
-			// TODO: implement
+			if DoEvent.Event.AssociatedProbability == nil {
+				return false, fmt.Errorf("dependent event has no probability to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoEvent.Event.AssociatedProbability.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoEvent.Event.AssociatedProbability.SingleNumber, DoEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				if min <= 0 {
+					return false, nil // missed dependency
+				}
+			} else if DoEvent.Event.AssociatedProbability.Range != nil {
+				base, std, err := simulateRange(DoEvent.Event.AssociatedProbability.Range, DoEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				if min <= 0 {
+					return false, nil // missed dependency
+				}
+
+			} else if DoEvent.Event.AssociatedProbability.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoEvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoEvent.Event.ID, err.Error())
+				}
+
+				min := base - std
+
+				if min <= 0 {
+					return false, nil // missed dependency
+				}
+			} else {
+				return false, fmt.Errorf("dependent event has no probability to compare with %d", DepEvent.Event.ID)
+			}
+
 			break
 		case types.DoesNotHappen:
 			// does not happen means a zero probability for the event or its associated risk / mitigation if no event probability is provided
-			// TODO: implement
+			if DoEvent.Event.AssociatedProbability == nil {
+				return false, fmt.Errorf("dependent event has no probability to compare with %d", DepEvent.Event.ID)
+			}
+
+			if DoEvent.Event.AssociatedProbability.SingleNumber != nil {
+				base, std, err := simulateSingleNumber(DoEvent.Event.AssociatedProbability.SingleNumber, DoEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating single number for dependent event %d: %s", DoEvent.Event.ID, err.Error())
+				}
+
+				if base-std > 0 {
+					return false, nil // missed dependency
+				}
+			} else if DoEvent.Event.AssociatedProbability.Range != nil {
+				base, std, err := simulateRange(DoEvent.Event.AssociatedProbability.Range, DoEvent.Event.Timeframe)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating range for dependent event %d: %s", DoEvent.Event.ID, err.Error())
+				}
+
+				if base-std > 0 {
+					return false, nil // missed dependency
+				}
+			} else if DoEvent.Event.AssociatedProbability.Decomposed != nil {
+				base, std, err := simulateDecomposedByAttribute(DoEvent.Event.AssociatedProbability.Decomposed, ProbabilityAttribute)
+
+				if err != nil {
+					return false, fmt.Errorf("error simulating decomposed for dependent event %d: %s", DoEvent.Event.ID, err.Error())
+				}
+
+				if base-std > 0 {
+					return false, nil // missed dependency
+				}
+			} else {
+				return false, fmt.Errorf("dependent event has no probability to compare with %d", DepEvent.Event.ID)
+			}
 			break
 		default:
 			return false, fmt.Errorf("invalid dependency type")
@@ -78,7 +158,7 @@ func DependencyCheck(DepEvent *utils.FilteredEvent, DType uint64, Events []*util
 	for _, DoP := range DepEvent.Event.DependsOnProbability {
 		DoPEvent, err := utils.FindEventByID(*DoP.DependentEventID, Events)
 		if err != nil {
-			return false, fmt.Errorf("dependent event %d not found", *DoP.DependentEventID)
+			return false, fmt.Errorf("dependent event %d not found line 81", *DoP.DependentEventID)
 		}
 
 		if DoPEvent == nil || DoPEvent.Event == nil {
@@ -102,7 +182,7 @@ func DependencyCheck(DepEvent *utils.FilteredEvent, DType uint64, Events []*util
 
 			dEvent, err := utils.FindEventByID(*dID, Events)
 			if err != nil {
-				return false, fmt.Errorf("dependent event %d not found", *dID)
+				return false, fmt.Errorf("dependent event %d not found 105", *dID)
 
 			}
 
@@ -2009,7 +2089,7 @@ func DependencyCheck(DepEvent *utils.FilteredEvent, DType uint64, Events []*util
 	for _, DoI := range DepEvent.Event.DependsOnImpact {
 		DoIEvent, err := utils.FindEventByID(*DoI.DependentEventID, Events)
 		if err != nil {
-			return false, fmt.Errorf("dependent event %d not found", *DoI.DependentEventID)
+			return false, fmt.Errorf("dependent event %d not found 2012", *DoI.DependentEventID)
 		}
 
 		if DoIEvent == nil || DoIEvent.Event == nil {
@@ -2033,7 +2113,7 @@ func DependencyCheck(DepEvent *utils.FilteredEvent, DType uint64, Events []*util
 
 			dEvent, err := utils.FindEventByID(*dID, Events)
 			if err != nil {
-				return false, fmt.Errorf("dependent event %d not found", *dID)
+				return false, fmt.Errorf("dependent event %d not found 2036", *dID)
 
 			}
 
@@ -3940,7 +4020,7 @@ func DependencyCheck(DepEvent *utils.FilteredEvent, DType uint64, Events []*util
 	for _, DoC := range DepEvent.Event.DependsOnCost {
 		DoCEvent, err := utils.FindEventByID(*DoC.DependentEventID, Events)
 		if err != nil {
-			return false, fmt.Errorf("dependent event %d not found", *DoC.DependentEventID)
+			return false, fmt.Errorf("dependent event %d not found 3943", *DoC.DependentEventID)
 		}
 
 		if DoCEvent == nil || DoCEvent.Event == nil {
@@ -3964,7 +4044,7 @@ func DependencyCheck(DepEvent *utils.FilteredEvent, DType uint64, Events []*util
 
 			dEvent, err := utils.FindEventByID(*dID, Events)
 			if err != nil {
-				return false, fmt.Errorf("dependent event %d not found", *dID)
+				return false, fmt.Errorf("dependent event %d not found 3967", *dID)
 
 			}
 

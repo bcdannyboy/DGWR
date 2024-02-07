@@ -12,7 +12,6 @@ const (
 )
 
 type Probability struct {
-	ID              uint64             `json:"id"`
 	Name            string             `json:"name,omitempty"`
 	Description     string             `json:"description,omitempty"`
 	SingleNumber    *SingleNumber      `json:"single_number,omitempty"`
@@ -22,7 +21,6 @@ type Probability struct {
 }
 
 type Impact struct {
-	ID              uint64              `json:"id"`
 	Name            string              `json:"name,omitempty"`
 	Description     string              `json:"description,omitempty"`
 	IsCostSaving    bool                `json:"is_cost_saving,omitempty"`
@@ -34,7 +32,6 @@ type Impact struct {
 }
 
 type Cost struct {
-	ID              uint64              `json:"id"`
 	Name            string              `json:"name,omitempty"`
 	Description     string              `json:"description,omitempty"`
 	SingleNumber    *SingleNumber       `json:"single_number,omitempty"`

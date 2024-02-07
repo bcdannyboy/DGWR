@@ -13,10 +13,12 @@ func SimulateIndependentEvents(Events []*utils.FilteredEvent, iterations int) ([
 
 	for _, event := range Events {
 		for i := 0; i < iterations; i++ {
+			if event.Event.AssociatedProbability == nil && event.Event.AssociatedImpact == nil && event.Event.AssociatedCost == nil {
+				return nil, fmt.Errorf("event %v has no associated probability, impact or cost", event.ID)
+			}
+
 			// probability
-			if event.Event.AssociatedProbability == nil {
-				return nil, fmt.Errorf("event %v has no associated probability", event.ID)
-			} else {
+			if event.Event.AssociatedProbability != nil {
 				// default probability item
 				if event.Event.AssociatedProbability.SingleNumber != nil {
 					// associated probability single number probability
@@ -56,9 +58,7 @@ func SimulateIndependentEvents(Events []*utils.FilteredEvent, iterations int) ([
 			}
 
 			// impact
-			if event.Event.AssociatedImpact == nil {
-				return nil, fmt.Errorf("event %v has no associated impact", event.ID)
-			} else {
+			if event.Event.AssociatedImpact != nil {
 				// default impact item
 				if event.Event.AssociatedImpact.SingleNumber != nil {
 					// associated impact single number impact
@@ -101,9 +101,7 @@ func SimulateIndependentEvents(Events []*utils.FilteredEvent, iterations int) ([
 			}
 
 			// cost
-			if event.Event.AssociatedCost == nil {
-				return nil, fmt.Errorf("event %v has no associated cost", event.ID)
-			} else {
+			if event.Event.AssociatedCost != nil {
 				// default cost item
 				if event.Event.AssociatedCost.SingleNumber != nil {
 					// associated cost single number cost
@@ -156,6 +154,10 @@ func SimulateDependentEvents(Events []*utils.FilteredEvent, iterations int) ([]*
 
 			dType := event.DependencyType
 			dID := event.DependentEventID
+
+			if dID == nil {
+				return nil, fmt.Errorf("dependent event ID is nil for event %v", event.ID)
+			}
 
 			dEvent, err := utils.FindEventByID(*dID, Events)
 			if err != nil {

@@ -25,31 +25,12 @@ func (m *MonteCarlo) Simulate() ([]*types.SimulationResults, error) {
 		return nil, errors.New("No events to simulate")
 	}
 
-	IndependentEvents := []*utils.FilteredEvent{}
-	DependentEvents := []*utils.FilteredEvent{}
-	for _, event := range filteredEvents {
-		if event.Independent {
-			IndependentEvents = append(IndependentEvents, event)
-		} else {
-			DependentEvents = append(DependentEvents, event)
-		}
-	}
-
-	// 2. simulate all the independent events and store the results
-	IndependentResults, err := SimulateIndependentEvents(IndependentEvents, m.Iterations)
-	if err != nil {
-		return nil, fmt.Errorf("Error simulating independent events: %s", err)
-	}
-
-	// 3. simulate all the dependent events and store the results
-	DependentResults, err := SimulateDependentEvents(DependentEvents, m.Iterations)
+	// 2. simulate all the events and store the results
+	Results, err := SimulateDependentEvents(filteredEvents, m.Iterations)
 	if err != nil {
 		return nil, fmt.Errorf("Error simulating dependent events: %s", err)
 	}
 
-	// 4. combine the results of the independent and dependent events
-	AllResults := append(IndependentResults, DependentResults...)
-
-	// 5. return the results
-	return AllResults, nil
+	// 3. return the results
+	return Results, nil
 }

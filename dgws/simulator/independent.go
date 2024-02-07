@@ -24,8 +24,10 @@ func SimulateIndependentSingleNumer(sn *types.SingleNumber, timeFrame uint64) (*
 		return nil, err
 	}
 
-	// probability is impacted by the user's confidence
-	randomFloat = randomFloat - (randomFloat * *sn.Confidence)
+	if sn.Confidence != nil {
+		// probability is impacted by the user's confidence
+		randomFloat = randomFloat - (randomFloat * *sn.Confidence)
+	}
 
 	confidenceAffectOnValue, err := utils.CoinFlip()
 	if err != nil {
@@ -89,8 +91,12 @@ func SimulateIndependentRange(rng *types.Range, timeFrame uint64) (*float64, err
 	}
 
 	// probability is impacted by the user's confidence
-	randomMinimumFloat = randomMinimumFloat - (randomMinimumFloat * *rng.Minimum.Confidence)
-	randomMaximumFloat = randomMaximumFloat - (randomMaximumFloat * *rng.Maximum.Confidence)
+	if rng.Minimum.Confidence != nil {
+		randomMinimumFloat = randomMinimumFloat - (randomMinimumFloat * *rng.Minimum.Confidence)
+	}
+	if rng.Maximum.Confidence != nil {
+		randomMaximumFloat = randomMaximumFloat - (randomMaximumFloat * *rng.Maximum.Confidence)
+	}
 
 	minimumStandardDeviation := 0.0
 	maximumStandardDeviation := 0.0

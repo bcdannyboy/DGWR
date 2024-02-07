@@ -2,7 +2,6 @@ package utils
 
 import (
 	"errors"
-
 	"github.com/bcdannyboy/montecargo/dgws/types"
 )
 
