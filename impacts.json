@@ -1,0 +1,10 @@
+{
+    "Behavioral Anomaly Alert": -789.802420294377,
+    "Compromised Account": 0.023587568018545238,
+    "Host Control Alert": -14677.240342969904,
+    "Malicious Duo Prompt Accepted": 0.00003207919274826783,
+    "Network Control Alert": -796.8227763703298,
+    "Phishing Email Detected": -2705.256479239313,
+    "Phishing Email Received": 1201690.3537408176,
+    "Phishing Email Reported": -12.977023967454196
+}
