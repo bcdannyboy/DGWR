@@ -1,1 +1,8 @@
-{"Behavioral Anomaly Alert":1,"Host Control Alert":1,"Network Control Alert":1,"Phishing Email Detected":1,"Phishing Email Received":3,"Phishing Email Reported":1}
+{
+    "Behavioral Anomaly Alert": 1,
+    "Host Control Alert": 1,
+    "Network Control Alert": 1,
+    "Phishing Email Detected": 1,
+    "Phishing Email Received": 3,
+    "Phishing Email Reported": 1
+}

@@ -16,27 +16,35 @@ func adjustProbabilityForDependencies(event *risk.Event, eventsOccurred map[int]
 		dependencyOccurred := eventsOccurred[dependency.DependsOnEventID]
 
 		if dependency.Happens {
-			// If the dependency must happen for the event to occur:
 			if !dependencyOccurred {
-				// If the dependency did not occur, the subsequent event's probability is effectively nullified.
-				// This is because the event's occurrence was contingent on this dependency happening.
 				return 0
 			}
 		} else {
-			// If the dependency must not happen for the event to occur:
 			if dependencyOccurred {
-				// If the dependency occurred, the subsequent event's probability is effectively nullified.
-				// This is because the event's occurrence was contingent on this dependency not happening.
 				return 0
 			}
 		}
-		// If the function has not returned by this point, it means that for each dependency, its condition
-		// (whether it should happen or not) aligns with what actually occurred, and thus the base probability
-		// remains valid in the updated context.
 	}
 
-	// Return the base probability if all dependencies' conditions align with actual outcomes.
 	return baseProbability
+}
+
+// UpdateEventProbabilityWithDependency updates the event probability based on the outcome of its dependencies using Bayesian principles.
+func UpdateEventProbabilityWithDependency(event *risk.Event, eventsOccurred map[int]bool, eventProbabilities map[int]float64) float64 {
+	adjustedProbability := adjustProbabilityForDependencies(event, eventsOccurred, eventProbabilities)
+	// Iterate over each dependency to apply Bayesian updating
+	for _, dependency := range event.Dependencies {
+		dependencyProbability := eventProbabilities[dependency.DependsOnEventID]
+		if dependency.Happens {
+			// For dependencies that must happen, use the positive impact on the probability.
+			adjustedProbability *= dependencyProbability
+		} else {
+			// For dependencies that must not happen, use the negative impact on the probability.
+			adjustedProbability *= (1 - dependencyProbability)
+		}
+	}
+	// Ensure the probability is within [0,1]
+	return clampProbability(adjustedProbability)
 }
 
 // SimulateEvent checks if an event happens based on its probability and dependencies.
