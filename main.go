@@ -830,7 +830,7 @@ func main() {
 	ProbabilityMap, ImpactMap, err := analysis.MonteCarlo(Events, 100_000)
 
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("error running monte carlo analysis: %w", err))
 	}
 
 	ProbMap := make(map[string]float64)

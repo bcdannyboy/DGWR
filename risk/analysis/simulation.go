@@ -36,27 +36,8 @@ func SimulateEvent(ID int, events []*risk.Event) (bool, map[string]float64, erro
 	}
 
 	rand.Seed(time.Now().UnixNano())
-	MinProbabilityCoinFlip := rand.Float64() > 0.5
-	MaxProbabilityCoinFlip := rand.Float64() > 0.5
-
-	MinConfidenceImpact := rand.Float64() * event.Probability.MinimumConfidence
-	MaxConfidenceImpact := rand.Float64() * event.Probability.MaximumConfidence
-
-	MinProbability := event.Probability.Minimum
-	MaxProbability := event.Probability.Maximum
-
-	if MinProbabilityCoinFlip {
-		MinProbability = MinProbability - MinConfidenceImpact
-	} else {
-		MinProbability = MinProbability + MinConfidenceImpact
-	}
-
-	if MaxProbabilityCoinFlip {
-		MaxProbability = MaxProbability - MaxConfidenceImpact
-	} else {
-		MaxProbability = MaxProbability + MaxConfidenceImpact
-	}
-
+	MaxProbability := statistics.GenerateBetaSample(event.Probability.Maximum, event.Probability.MaximumConfidence)
+	MinProbability := statistics.GenerateBetaSample(event.Probability.Minimum, event.Probability.MinimumConfidence)
 	if MinProbability < 0 {
 		MinProbability = 0
 	}
@@ -77,44 +58,11 @@ func SimulateEvent(ID int, events []*risk.Event) (bool, map[string]float64, erro
 		totalImpacts := make(map[string]float64)
 
 		for _, impact := range event.Impact {
-			MinIndividualUnitImpactCoinFlip := rand.Float64() > 0.5
-			MaxIndividualUnitImpactCoinFlip := rand.Float64() > 0.5
-			MinImpactEventsCoinFlip := rand.Float64() > 0.5
-			MaxImpactEventsCoinFlip := rand.Float64() > 0.5
 
-			MinConfidenceIndividualUnitImpact := rand.Float64() * impact.MinimumIndividualUnitImpactConfidence
-			MaxConfidenceIndividualUnitImpact := rand.Float64() * impact.MaximumIndividualUnitImpactConfidence
-			MinConfidenceImpactEvents := rand.Float64() * impact.MinimumImpactEventsConfidence
-			MaxConfidenceImpactEvents := rand.Float64() * impact.MaximumImpactEventsConfidence
-
-			MinIndividualUnitImpact := impact.MinimumIndividualUnitImpact
-			MaxIndividualUnitImpact := impact.MaximumIndividualUnitImpact
-			MinImpactEvents := impact.MinimumImpactEvents
-			MaxImpactEvents := impact.MaximumImpactEvents
-
-			if MinIndividualUnitImpactCoinFlip {
-				MinIndividualUnitImpact = MinIndividualUnitImpact - MinConfidenceIndividualUnitImpact
-			} else {
-				MinIndividualUnitImpact = MinIndividualUnitImpact + MinConfidenceIndividualUnitImpact
-			}
-
-			if MaxIndividualUnitImpactCoinFlip {
-				MaxIndividualUnitImpact = MaxIndividualUnitImpact - MaxConfidenceIndividualUnitImpact
-			} else {
-				MaxIndividualUnitImpact = MaxIndividualUnitImpact + MaxConfidenceIndividualUnitImpact
-			}
-
-			if MinImpactEventsCoinFlip {
-				MinImpactEvents = MinImpactEvents - MinConfidenceImpactEvents
-			} else {
-				MinImpactEvents = MinImpactEvents + MinConfidenceImpactEvents
-			}
-
-			if MaxImpactEventsCoinFlip {
-				MaxImpactEvents = MaxImpactEvents - MaxConfidenceImpactEvents
-			} else {
-				MaxImpactEvents = MaxImpactEvents + MaxConfidenceImpactEvents
-			}
+			MaxIndividualUnitImpact := statistics.GenerateBetaSample(impact.MaximumIndividualUnitImpact, impact.MaximumIndividualUnitImpactConfidence)
+			MinIndividualUnitImpact := statistics.GenerateBetaSample(impact.MinimumIndividualUnitImpact, impact.MinimumIndividualUnitImpactConfidence)
+			MaxImpactEvents := statistics.GenerateBetaSample(impact.MaximumImpactEvents, impact.MaximumImpactEventsConfidence)
+			MinImpactEvents := statistics.GenerateBetaSample(impact.MinimumImpactEvents, impact.MinimumImpactEventsConfidence)
 
 			if !impact.PositiveImpact {
 				// if its not a postivie impact then we need to ensure the value is no less than 0
