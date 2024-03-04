@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bcdannyboy/dgws/risk"
+	"github.com/bcdannyboy/dgws/risk/statistics"
 )
 
 // SimulateEvent checks if an event happens based on its probability and dependencies, using Bayesian statistics.
@@ -70,7 +71,9 @@ func MonteCarlo(events []*risk.Event, iterations int) (map[int]float64, map[stri
 
 	// Initialize probabilities with a reasonable estimate
 	for _, event := range events {
-		eventProbabilities[event.ID] = (event.Probability.Minimum + event.Probability.Maximum) / 2
+		initMin := statistics.GenerateBetaSample(event.Probability.Minimum, event.Probability.MinimumConfidence)
+		initMax := statistics.GenerateBetaSample(event.Probability.Maximum, event.Probability.MaximumConfidence)
+		eventProbabilities[event.ID] = (initMax + initMin) / 2
 	}
 
 	for i := 0; i < iterations; i++ {
