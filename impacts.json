@@ -1,10 +1,14 @@
 {
-    "Behavioral Anomaly Alert": -142.06248427780577,
-    "Host Control Alert": -2666.7853273732726,
-    "Network Control Alert": -142.05096090658748,
-    "Phishing Email Detected": -2667.562163012987,
-    "Phishing Email Received": 131397.59815271,
-    "Phishing Email Reported": -15.787968910317309,
-    "Threat Actor": 0.9865186103908439,
-    "USD": 81.86939907570687
+    "Behavioral Anomaly Alert": 1,
+    "Compromised Account": 2,
+    "Host Control Alert": 1,
+    "Lateral Movement Event": 50.5,
+    "Malicious Duo Prompt Accepted": 1,
+    "Malware Instance": 2,
+    "Network Control Alert": 1,
+    "Phishing Email Detected": 1,
+    "Phishing Email Received": 3,
+    "Phishing Email Reported": 1,
+    "Threat Actor": 3,
+    "USD": 5500605
 }

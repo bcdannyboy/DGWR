@@ -1,175 +1,109 @@
 package analysis
 
 import (
-	"errors"
-	"fmt"
 	"math/rand"
 	"time"
 
 	"github.com/bcdannyboy/dgws/risk"
-	"github.com/bcdannyboy/dgws/risk/statistics"
-	"github.com/bcdannyboy/dgws/risk/utils"
 )
 
-// returns:
-// bool - whether the event happens
-// float64 - a map of impacts by unit
-// error - if the event with the given ID is not found
-func SimulateEvent(ID int, events []*risk.Event, eventProbabilities map[int]float64) (bool, map[string]float64, error) {
-	event := utils.FindEvent(ID, events)
-	if event == nil {
-		return false, nil, errors.New(fmt.Sprintf("event with ID %d not found", ID))
-	}
+// SimulateEvent checks if an event happens based on its probability and dependencies, using Bayesian statistics.
+func SimulateEvent(event *risk.Event, eventsOccurred map[int]bool, eventProbabilities map[int]float64) (bool, map[string]float64) {
+	// Initial probability of the event
+	baseProbability := eventProbabilities[event.ID]
 
-	// Adjust event probability based on dependencies using conditional probabilities
-	adjustedProbability := eventProbabilities[ID] // Initial base probability
-	if len(event.Dependencies) > 0 {
-		for _, dependency := range event.Dependencies {
-			dependencyProbability := eventProbabilities[dependency.DependsOnEventID]
-			if dependency.Happens {
-				// Adjust probability if the dependency is expected to happen
-				adjustedProbability *= dependencyProbability
-			} else {
-				// Adjust probability considering the dependency does not happen
-				adjustedProbability *= (1 - dependencyProbability)
+	// Adjust the probability based on dependencies using Bayesian statistics
+	for _, dependency := range event.Dependencies {
+		if depEventProb, exists := eventProbabilities[dependency.DependsOnEventID]; exists {
+			if dependency.Happens && eventsOccurred[dependency.DependsOnEventID] {
+				// Increase the probability if the dependency happened as required
+				baseProbability = baseProbability * depEventProb / clampProbability(baseProbability)
+			} else if !dependency.Happens && !eventsOccurred[dependency.DependsOnEventID] {
+				// Adjust the probability if the dependency did not happen as required
+				// This could be more complex depending on the specific logic needed
+				baseProbability = baseProbability * (1 - depEventProb) / clampProbability(baseProbability)
 			}
 		}
 	}
 
+	// Ensure the probability is within [0, 1]
+	adjustedProbability := clampProbability(baseProbability)
+
+	// Decide if the event happens based on the adjusted probability
 	rand.Seed(time.Now().UnixNano())
-	MaxProbability := statistics.GenerateBetaSample(event.Probability.Maximum, event.Probability.MaximumConfidence)
-	MinProbability := statistics.GenerateBetaSample(event.Probability.Minimum, event.Probability.MinimumConfidence)
-	if MinProbability < 0 {
-		MinProbability = 0
+	if rand.Float64() <= adjustedProbability {
+		// Event happens, calculate impacts
+		impacts := calculateImpacts(event)
+		return true, impacts
 	}
-
-	AverageProbability := (MinProbability + MaxProbability) / 2
-
-	TimeFrameAdjustedMinProbability := utils.AdjustForTime(MinProbability, event.Probability.ExpectedFrequency)
-	TimeFrameAdjustedMaxProbability := utils.AdjustForTime(MaxProbability, event.Probability.ExpectedFrequency)
-	TimeFrameAdjustedAverageProbability := utils.AdjustForTime(AverageProbability, event.Probability.ExpectedFrequency)
-
-	ProbabilityPERTSample := statistics.CalculatePERTSample(TimeFrameAdjustedMinProbability, TimeFrameAdjustedMaxProbability, TimeFrameAdjustedAverageProbability)
-
-	if rand.Float64() < ProbabilityPERTSample*adjustedProbability {
-		if len(event.Impact) == 0 {
-			return true, nil, nil
-		}
-
-		totalImpacts := make(map[string]float64)
-
-		for _, impact := range event.Impact {
-
-			MaxIndividualUnitImpact := statistics.GenerateBetaSample(impact.MaximumIndividualUnitImpact, impact.MaximumIndividualUnitImpactConfidence)
-			MinIndividualUnitImpact := statistics.GenerateBetaSample(impact.MinimumIndividualUnitImpact, impact.MinimumIndividualUnitImpactConfidence)
-			MaxImpactEvents := statistics.GenerateBetaSample(impact.MaximumImpactEvents, impact.MaximumImpactEventsConfidence)
-			MinImpactEvents := statistics.GenerateBetaSample(impact.MinimumImpactEvents, impact.MinimumImpactEventsConfidence)
-
-			if !impact.PositiveImpact {
-				// if its not a postivie impact then we need to ensure the value is no less than 0
-				if MinIndividualUnitImpact < 0 {
-					MinIndividualUnitImpact = 0
-				}
-				if MaxIndividualUnitImpact < 0 {
-					MaxIndividualUnitImpact = 0
-				}
-				if MinImpactEvents < 0 {
-					MinImpactEvents = 0
-				}
-				if MaxImpactEvents < 0 {
-					MaxImpactEvents = 0
-				}
-			}
-
-			AverageIndividualUnitImpact := (MinIndividualUnitImpact + MaxIndividualUnitImpact) / 2
-			AverageImpactEvents := (MinImpactEvents + MaxImpactEvents) / 2
-
-			TimeFrameAdjustedMinIndividualUnitImpact := utils.AdjustForTime(MinIndividualUnitImpact, impact.ExpectedFrequency)
-			TimeFrameAdjustedMaxIndividualUnitImpact := utils.AdjustForTime(MaxIndividualUnitImpact, impact.ExpectedFrequency)
-			TimeFrameAdjustedAverageIndividualUnitImpact := utils.AdjustForTime(AverageIndividualUnitImpact, impact.ExpectedFrequency)
-
-			TimeFrameAdjustedMinImpactEvents := utils.AdjustForTime(MinImpactEvents, impact.ExpectedFrequency)
-			TimeFrameAdjustedMaxImpactEvents := utils.AdjustForTime(MaxImpactEvents, impact.ExpectedFrequency)
-			TimeFrameAdjustedAverageImpactEvents := utils.AdjustForTime(AverageImpactEvents, impact.ExpectedFrequency)
-
-			IndividualUnitImpactPERTSample := statistics.CalculatePERTSample(TimeFrameAdjustedMinIndividualUnitImpact, TimeFrameAdjustedMaxIndividualUnitImpact, TimeFrameAdjustedAverageIndividualUnitImpact)
-			ImpactEventsPERTSample := statistics.CalculatePERTSample(TimeFrameAdjustedMinImpactEvents, TimeFrameAdjustedMaxImpactEvents, TimeFrameAdjustedAverageImpactEvents)
-
-			if ImpactEventsPERTSample < 0 {
-				ImpactEventsPERTSample = 1
-			}
-
-			if IndividualUnitImpactPERTSample < 0 {
-				IndividualUnitImpactPERTSample = 0
-			}
-
-			TotalImpact := float64(IndividualUnitImpactPERTSample * ImpactEventsPERTSample)
-
-			if !impact.PositiveImpact {
-				if v, ok := totalImpacts[impact.Unit]; ok {
-					totalImpacts[impact.Unit] = v + TotalImpact
-				} else {
-					totalImpacts[impact.Unit] = TotalImpact
-				}
-			} else {
-				if v, ok := totalImpacts[impact.Unit]; ok {
-					totalImpacts[impact.Unit] = v - TotalImpact
-				} else {
-					totalImpacts[impact.Unit] = -TotalImpact
-				}
-			}
-		}
-
-		return true, totalImpacts, nil
-	}
-
-	return false, nil, nil
+	return false, nil
 }
 
-// returns:
-// map[int]float64 - a map of event IDs to their probabilities
-// map[string]float64 - a map of impact units to their total impacts
-// error - if the event with the given ID is not found
+func clampProbability(p float64) float64 {
+	if p < 0 {
+		return 0
+	}
+	if p > 1 {
+		return 1
+	}
+	return p
+}
+
+// calculateImpacts calculates the impacts for an event.
+func calculateImpacts(event *risk.Event) map[string]float64 {
+	impacts := make(map[string]float64)
+	for _, impact := range event.Impact {
+		// Simplified example of impact calculation
+		impactValue := (impact.MinimumIndividualUnitImpact + impact.MaximumIndividualUnitImpact) / 2
+		impacts[impact.Unit] += impactValue
+	}
+	return impacts
+}
+
+// MonteCarlo simulates the risk event network a specified number of times,
+// adjusting for dependencies using Bayesian statistics.
 func MonteCarlo(events []*risk.Event, iterations int) (map[int]float64, map[string]float64, error) {
 	eventProbabilities := make(map[int]float64)
 	totalImpacts := make(map[string]float64)
+	eventOccurrences := make(map[int]int)
+	impactOccurrences := make(map[string]int)
 
-	// Initialize probabilities and impacts
+	// Initialize probabilities with a reasonable estimate
 	for _, event := range events {
-		// Initial probability can be set based on historical data, expert judgement, or a default value
-		// For this example, let's assume a default probability which can be replaced by more accurate estimates
-		eventProbabilities[event.ID] = 0.5 // Placeholder for actual probability initialization
+		eventProbabilities[event.ID] = (event.Probability.Minimum + event.Probability.Maximum) / 2
 	}
 
 	for i := 0; i < iterations; i++ {
-		for _, event := range events {
-			// Now passing eventProbabilities to SimulateEvent
-			happens, impacts, err := SimulateEvent(event.ID, events, eventProbabilities)
-			if err != nil {
-				return nil, nil, err
-			}
+		eventsOccurred := make(map[int]bool)
+		rand.Seed(time.Now().UnixNano())
 
-			if happens {
-				eventProbabilities[event.ID]++
-				for k, v := range impacts {
-					if val, ok := totalImpacts[k]; ok {
-						totalImpacts[k] = val + v
-					} else {
-						totalImpacts[k] = v
-					}
+		for _, event := range events {
+			happened, impacts := SimulateEvent(event, eventsOccurred, eventProbabilities)
+			eventsOccurred[event.ID] = happened
+			if happened {
+				eventOccurrences[event.ID]++
+				for impactType, impactValue := range impacts {
+					totalImpacts[impactType] += impactValue
+					impactOccurrences[impactType]++ // Increment count for this impact type.
 				}
 			}
 		}
 	}
 
-	// Normalize the probabilities and impacts
-	for k := range eventProbabilities {
-		// Convert count to probability
-		eventProbabilities[k] = eventProbabilities[k] / float64(iterations)
+	// Normalize the total impacts based on the number of occurrences, not iterations.
+	for impactType, totalValue := range totalImpacts {
+		if occurrences, ok := impactOccurrences[impactType]; ok && occurrences > 0 {
+			totalImpacts[impactType] = totalValue / float64(occurrences)
+		}
 	}
 
-	for k, v := range totalImpacts {
-		totalImpacts[k] = v / float64(iterations)
+	// Adjust probabilities based on occurrences
+	for eventID := range eventProbabilities {
+		if occurrences, found := eventOccurrences[eventID]; found {
+			eventProbabilities[eventID] = float64(occurrences) / float64(iterations)
+		} else {
+			eventProbabilities[eventID] = 0 // Event never occurred.
+		}
 	}
 
 	return eventProbabilities, totalImpacts, nil
