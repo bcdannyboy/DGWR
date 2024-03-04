@@ -8,57 +8,40 @@ import (
 	"github.com/bcdannyboy/dgws/risk/statistics"
 )
 
-func adjustProbabilityForDependencies(event *risk.Event, eventsOccurred map[int]bool, eventProbabilities map[int]float64) float64 {
-	// The base probability of the event without considering dependencies.
-	baseProbability := eventProbabilities[event.ID]
-
-	for _, dependency := range event.Dependencies {
-		dependencyOccurred := eventsOccurred[dependency.DependsOnEventID]
-
-		if dependency.Happens {
-			if !dependencyOccurred {
-				return 0
-			}
-		} else {
-			if dependencyOccurred {
-				return 0
-			}
-		}
-	}
-
-	return baseProbability
-}
-
 // UpdateEventProbabilityWithDependency updates the event probability based on the outcome of its dependencies using Bayesian principles.
 func UpdateEventProbabilityWithDependency(event *risk.Event, eventsOccurred map[int]bool, eventProbabilities map[int]float64) float64 {
-	adjustedProbability := adjustProbabilityForDependencies(event, eventsOccurred, eventProbabilities)
-	// Iterate over each dependency to apply Bayesian updating
+	if len(event.Dependencies) == 0 {
+		return eventProbabilities[event.ID]
+	}
+
+	// Adjust event probability based on dependencies
 	for _, dependency := range event.Dependencies {
-		dependencyProbability := eventProbabilities[dependency.DependsOnEventID]
-		if dependency.Happens {
-			// For dependencies that must happen, use the positive impact on the probability.
-			adjustedProbability *= dependencyProbability
-		} else {
-			// For dependencies that must not happen, use the negative impact on the probability.
-			adjustedProbability *= (1 - dependencyProbability)
+		dependencyEventProbability := eventProbabilities[dependency.DependsOnEventID]
+		dependencyOccurred := eventsOccurred[dependency.DependsOnEventID]
+
+		if dependency.Happens && !dependencyOccurred {
+			// If the event depended on this happening and it didn't, event cannot happen
+			return 0
+		} else if !dependency.Happens && dependencyOccurred {
+			// If the event depended on this not happening but it did, greatly reduce the probability
+			return eventProbabilities[event.ID] * (1 - dependencyEventProbability)
 		}
 	}
-	// Ensure the probability is within [0,1]
-	return clampProbability(adjustedProbability)
+
+	return eventProbabilities[event.ID]
 }
 
 // SimulateEvent checks if an event happens based on its probability and dependencies.
 func SimulateEvent(event *risk.Event, eventsOccurred map[int]bool, eventProbabilities map[int]float64) (bool, map[string]float64) {
-	// Adjust the probability based on dependencies
-	adjustedProbability := adjustProbabilityForDependencies(event, eventsOccurred, eventProbabilities)
+	adjustedProbability := UpdateEventProbabilityWithDependency(event, eventsOccurred, eventProbabilities)
 
-	// Decide if the event happens based on the adjusted probability
 	rand.Seed(time.Now().UnixNano())
 	if rand.Float64() <= adjustedProbability {
-		// Event happens, calculate impacts
+		eventsOccurred[event.ID] = true
 		impacts := calculateImpacts(event)
 		return true, impacts
 	}
+	eventsOccurred[event.ID] = false
 	return false, nil
 }
 
