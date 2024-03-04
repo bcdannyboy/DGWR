@@ -15,7 +15,7 @@ import (
 // Each event in the tree has their own expected time frame, probability, impacts, and dependencies.
 // All timeframes are scaled up to a yearly basis.
 //
-// In this example, only the PERT distribution is used to model the probabilities and impacts of each event.
+// In this example, Beta distributions and Latin Hypercube Sampling are used to model the probabilities and impacts of each event.
 //
 // In the output, all probabilities and impacts are represented in a scaled yearly frequency basis, regardless of the original timeframe.
 //

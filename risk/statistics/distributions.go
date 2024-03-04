@@ -35,29 +35,16 @@ func GenerateBetaSample(p float64, c float64) float64 {
 	return sample
 }
 
-// CalculatePERTSample safely calculates a PERT sample.
-func CalculatePERTSample(min, max, mode float64) float64 {
-	// Seed RNG - consider seeding globally or during initialization instead
+// GenerateLHSSamples generates Latin Hypercube Samples for a given range and sample size.
+func GenerateLHSSamples(min, max float64, n int) []float64 {
 	rand.Seed(time.Now().UnixNano())
 
-	// Ensure min < max to avoid division by zero
-	if min == max {
-		max = min + 0.0001 // Slight adjustment to avoid division by zero
+	step := (max - min) / float64(n)
+	samples := make([]float64, n)
+	for i := range samples {
+		samples[i] = rand.Float64()*step + float64(i)*step + min
 	}
 
-	// Ensure mode is within [min, max]
-	if mode < min {
-		mode = min
-	} else if mode > max {
-		mode = max
-	}
-
-	// Calculate alpha and beta using the PERT formula
-	alpha := 1 + ((mode-min)/(max-min))*4
-	beta := 1 + ((max-mode)/(max-min))*4
-
-	// Generate and return sample
-	betaDist := distuv.Beta{Alpha: alpha, Beta: beta}
-	pertSample := min + betaDist.Rand()*(max-min) // Scale and shift the beta sample
-	return pertSample
+	rand.Shuffle(len(samples), func(i, j int) { samples[i], samples[j] = samples[j], samples[i] })
+	return samples
 }
