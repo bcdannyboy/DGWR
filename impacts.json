@@ -1,9 +1,10 @@
 {
-    "Behavioral Anomaly Alert": -141.06559847574337,
-    "Compromised Account": 0.00015999686446817904,
-    "Host Control Alert": -2667.9077339460077,
-    "Network Control Alert": -137.84303776821204,
-    "Phishing Email Detected": -2667.4424631282413,
-    "Phishing Email Received": 131450.1893466196,
-    "Phishing Email Reported": -13.142711816509852
+    "Behavioral Anomaly Alert": -142.06248427780577,
+    "Host Control Alert": -2666.7853273732726,
+    "Network Control Alert": -142.05096090658748,
+    "Phishing Email Detected": -2667.562163012987,
+    "Phishing Email Received": 131397.59815271,
+    "Phishing Email Reported": -15.787968910317309,
+    "Threat Actor": 0.9865186103908439,
+    "USD": 81.86939907570687
 }

@@ -15,22 +15,23 @@ import (
 // bool - whether the event happens
 // float64 - a map of impacts by unit
 // error - if the event with the given ID is not found
-func SimulateEvent(ID int, events []*risk.Event) (bool, map[string]float64, error) {
+func SimulateEvent(ID int, events []*risk.Event, eventProbabilities map[int]float64) (bool, map[string]float64, error) {
 	event := utils.FindEvent(ID, events)
 	if event == nil {
 		return false, nil, errors.New(fmt.Sprintf("event with ID %d not found", ID))
 	}
 
+	// Adjust event probability based on dependencies using conditional probabilities
+	adjustedProbability := eventProbabilities[ID] // Initial base probability
 	if len(event.Dependencies) > 0 {
 		for _, dependency := range event.Dependencies {
-			depHappens, _, err := SimulateEvent(dependency.DependsOnEventID, events)
-			if err != nil {
-				return false, nil, err
-			}
-
-			if (dependency.Happens && !depHappens) || (!dependency.Happens && depHappens) {
-				// If the dependency happens and the event doesn't want it to, or the dependency doesn't happen and the event does, then the event doesn't happen
-				return false, nil, nil
+			dependencyProbability := eventProbabilities[dependency.DependsOnEventID]
+			if dependency.Happens {
+				// Adjust probability if the dependency is expected to happen
+				adjustedProbability *= dependencyProbability
+			} else {
+				// Adjust probability considering the dependency does not happen
+				adjustedProbability *= (1 - dependencyProbability)
 			}
 		}
 	}
@@ -50,7 +51,7 @@ func SimulateEvent(ID int, events []*risk.Event) (bool, map[string]float64, erro
 
 	ProbabilityPERTSample := statistics.CalculatePERTSample(TimeFrameAdjustedMinProbability, TimeFrameAdjustedMaxProbability, TimeFrameAdjustedAverageProbability)
 
-	if rand.Float64() < ProbabilityPERTSample {
+	if rand.Float64() < ProbabilityPERTSample*adjustedProbability {
 		if len(event.Impact) == 0 {
 			return true, nil, nil
 		}
@@ -133,13 +134,17 @@ func MonteCarlo(events []*risk.Event, iterations int) (map[int]float64, map[stri
 	eventProbabilities := make(map[int]float64)
 	totalImpacts := make(map[string]float64)
 
+	// Initialize probabilities and impacts
 	for _, event := range events {
-		eventProbabilities[event.ID] = 0
+		// Initial probability can be set based on historical data, expert judgement, or a default value
+		// For this example, let's assume a default probability which can be replaced by more accurate estimates
+		eventProbabilities[event.ID] = 0.5 // Placeholder for actual probability initialization
 	}
 
 	for i := 0; i < iterations; i++ {
 		for _, event := range events {
-			happens, impacts, err := SimulateEvent(event.ID, events)
+			// Now passing eventProbabilities to SimulateEvent
+			happens, impacts, err := SimulateEvent(event.ID, events, eventProbabilities)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -158,8 +163,9 @@ func MonteCarlo(events []*risk.Event, iterations int) (map[int]float64, map[stri
 	}
 
 	// Normalize the probabilities and impacts
-	for k, v := range eventProbabilities {
-		eventProbabilities[k] = v / float64(iterations)
+	for k := range eventProbabilities {
+		// Convert count to probability
+		eventProbabilities[k] = eventProbabilities[k] / float64(iterations)
 	}
 
 	for k, v := range totalImpacts {

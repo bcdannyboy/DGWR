@@ -1,14 +1,14 @@
 {
-    "Anti-Phishing Filter": 0.99992,
-    "Behavioral Controls Catch Anomalous Account Behavior": 0.99274,
-    "Employee Accepts Malicious Duo Push": 0,
-    "Employee Falls for Phishing Email": 0.00001,
-    "Employee Reports Phishing": 0.83258,
-    "Host-Based Controls Catch Malicious Activity or Code": 0.99986,
-    "Major Ransomware Event": 0,
-    "Network-Based Controls Catch Malicious Command and Control Traffic": 0.97006,
-    "Phishing Attempt": 0.99999,
-    "Ransomware Propogates Throughout Network Without Detection": 0,
-    "Threat Actor Delivers Ransomware Payload": 0,
-    "Threat Actor Establishes Code Execution Capabilities": 0
+    "Anti-Phishing Filter": 1.000005,
+    "Behavioral Controls Catch Anomalous Account Behavior": 1.000005,
+    "Employee Accepts Malicious Duo Push": 0.000005,
+    "Employee Falls for Phishing Email": 0.000005,
+    "Employee Reports Phishing": 0.999895,
+    "Host-Based Controls Catch Malicious Activity or Code": 1.000005,
+    "Major Ransomware Event": 0.568205,
+    "Network-Based Controls Catch Malicious Command and Control Traffic": 0.999995,
+    "Phishing Attempt": 1.000005,
+    "Ransomware Propogates Throughout Network Without Detection": 0.000005,
+    "Threat Actor Delivers Ransomware Payload": 0.000005,
+    "Threat Actor Establishes Code Execution Capabilities": 0.999905
 }
