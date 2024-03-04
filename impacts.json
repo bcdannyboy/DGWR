@@ -1,14 +1,1 @@
-{
-    "Behavioral Anomaly Alert": 1,
-    "Compromised Account": 2,
-    "Host Control Alert": 1,
-    "Lateral Movement Event": 50.5,
-    "Malicious Duo Prompt Accepted": 1,
-    "Malware Instance": 2,
-    "Network Control Alert": 1,
-    "Phishing Email Detected": 1,
-    "Phishing Email Received": 3,
-    "Phishing Email Reported": 1,
-    "Threat Actor": 3,
-    "USD": 5500605
-}
+{"Behavioral Anomaly Alert":1,"Host Control Alert":1,"Network Control Alert":1,"Phishing Email Detected":1,"Phishing Email Received":3,"Phishing Email Reported":1}

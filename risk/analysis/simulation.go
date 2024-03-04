@@ -8,27 +8,41 @@ import (
 	"github.com/bcdannyboy/dgws/risk/statistics"
 )
 
-// SimulateEvent checks if an event happens based on its probability and dependencies, using Bayesian statistics.
-func SimulateEvent(event *risk.Event, eventsOccurred map[int]bool, eventProbabilities map[int]float64) (bool, map[string]float64) {
-	// Initial probability of the event
+func adjustProbabilityForDependencies(event *risk.Event, eventsOccurred map[int]bool, eventProbabilities map[int]float64) float64 {
+	// The base probability of the event without considering dependencies.
 	baseProbability := eventProbabilities[event.ID]
 
-	// Adjust the probability based on dependencies using Bayesian statistics
 	for _, dependency := range event.Dependencies {
-		if depEventProb, exists := eventProbabilities[dependency.DependsOnEventID]; exists {
-			if dependency.Happens && eventsOccurred[dependency.DependsOnEventID] {
-				// Increase the probability if the dependency happened as required
-				baseProbability = baseProbability * depEventProb / clampProbability(baseProbability)
-			} else if !dependency.Happens && !eventsOccurred[dependency.DependsOnEventID] {
-				// Adjust the probability if the dependency did not happen as required
-				// This could be more complex depending on the specific logic needed
-				baseProbability = baseProbability * (1 - depEventProb) / clampProbability(baseProbability)
+		dependencyOccurred := eventsOccurred[dependency.DependsOnEventID]
+
+		if dependency.Happens {
+			// If the dependency must happen for the event to occur:
+			if !dependencyOccurred {
+				// If the dependency did not occur, the subsequent event's probability is effectively nullified.
+				// This is because the event's occurrence was contingent on this dependency happening.
+				return 0
+			}
+		} else {
+			// If the dependency must not happen for the event to occur:
+			if dependencyOccurred {
+				// If the dependency occurred, the subsequent event's probability is effectively nullified.
+				// This is because the event's occurrence was contingent on this dependency not happening.
+				return 0
 			}
 		}
+		// If the function has not returned by this point, it means that for each dependency, its condition
+		// (whether it should happen or not) aligns with what actually occurred, and thus the base probability
+		// remains valid in the updated context.
 	}
 
-	// Ensure the probability is within [0, 1]
-	adjustedProbability := clampProbability(baseProbability)
+	// Return the base probability if all dependencies' conditions align with actual outcomes.
+	return baseProbability
+}
+
+// SimulateEvent checks if an event happens based on its probability and dependencies.
+func SimulateEvent(event *risk.Event, eventsOccurred map[int]bool, eventProbabilities map[int]float64) (bool, map[string]float64) {
+	// Adjust the probability based on dependencies
+	adjustedProbability := adjustProbabilityForDependencies(event, eventsOccurred, eventProbabilities)
 
 	// Decide if the event happens based on the adjusted probability
 	rand.Seed(time.Now().UnixNano())
@@ -38,16 +52,6 @@ func SimulateEvent(event *risk.Event, eventsOccurred map[int]bool, eventProbabil
 		return true, impacts
 	}
 	return false, nil
-}
-
-func clampProbability(p float64) float64 {
-	if p < 0 {
-		return 0
-	}
-	if p > 1 {
-		return 1
-	}
-	return p
 }
 
 // calculateImpacts calculates the impacts for an event.
