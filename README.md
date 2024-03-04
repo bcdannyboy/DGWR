@@ -22,9 +22,14 @@ Currently, DGWR utilizes the PERT (Program Evaluation and Review Technique) dist
 
 ## System Usage
 
-The main file (`main.go`) in the DGWR system provides a detailed example of how to define risk events, including their probabilities, impacts, and dependencies. The example focuses on modeling a ransomware event tree, demonstrating the system's capability to handle complex, interconnected risk scenarios.
+There are 2 main files which can be used as implementation examples.
 
-### Output Files
+### Ransomware Event Tree Example
+`main_ransomware.go` is an example of a complex phishing -> major ransomware event event tree. This file can be used as a reference for implementing event trees and using the DGWR system to run simulations and analyze the results. This file also contains detailed code comments for the qualification and explanation of input variables.
 
-- **`probabilities.json`**: Contains the probability outputs for each scenario, derived from running the simulation 100,000 times. This file offers insight into the likelihood of various risk events occurring within the modeled scenario.
-- **`impacts.json`**: Stores the impact values associated with each risk event, also based on 100,000 simulation runs. These values help quantify the potential consequences of risk events, aiding in risk assessment and mitigation planning.
+This example also comes with 2 pre-generated output files:  `probabilities_ransomware.json` and `impacts_ransomware.json` which contain the probabilities and impacts of the ransomware event tree.
+
+### Code Vulnerability Event Tree Example
+`main_codevuln.go` contains a much more simplistic example of a code vulnerability event tree. This file can be used as a reference for implementing event trees and using the DGWR system to run simulations and analyze the results. 
+
+This example comes with a single pre-generated output file, `probabilities_vulnerability.json` which contains the probabilities of the code vulnerability event tree nodes.

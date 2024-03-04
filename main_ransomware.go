@@ -91,7 +91,7 @@ import (
 // 								   |                                |
 // 								   +--------------------------------+
 
-func main() {
+func main_ransomware() {
 
 	// --- ID GENERATION, SKIP AHEAD TO SEE THE EVENT DEFINITIONS ---
 	EmployeeGetsPhishedID, err := utils.GenerateID()
